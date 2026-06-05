@@ -1,0 +1,44 @@
+@import 'tailwindcss';
+
+/* Bunyan brand tokens (spec section 5). Sage is removed everywhere. */
+@theme {
+  --color-navy: #1e3a5f;
+  --color-deep-navy: #0c1929;
+  --color-navy-surface: #16304d;
+  --color-navy-line: #20344f;
+  --color-cream: #faf7f2;
+  --color-cream-surface: #fefdfb;
+  --color-gold: #d4a853;
+  --color-gold-deep: #c4932e;
+  --color-gold-soft: #e0c687;
+  --color-charcoal: #2d3748;
+  --color-muted: #6e8aae;
+  --color-idle: #33486a;
+  --color-error: #ed6a5e;
+
+  --font-wordmark: Georgia, 'Times New Roman', serif;
+  --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-ui);
+  background-color: var(--color-deep-navy);
+  color: var(--color-cream-surface);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* The custom title bar region is draggable; interactive children opt out. */
+.drag-region {
+  -webkit-app-region: drag;
+}
+.no-drag {
+  -webkit-app-region: no-drag;
+}
