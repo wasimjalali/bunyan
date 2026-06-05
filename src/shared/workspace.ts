@@ -22,9 +22,14 @@ export function createDefaultWorkspace(): Workspace {
   }
 }
 
-/** Round-robin colour by current project count, so adds cycle the brand set. */
-export function nextProjectColor(projectCount: number): string {
-  return PROJECT_COLORS[projectCount % PROJECT_COLORS.length]!
+/**
+ * The next project colour: the first brand colour no open project is using, so
+ * each add gets a distinct hue. Once every colour is taken, fall back to
+ * round-robin by count so adds keep cycling the brand set.
+ */
+export function nextProjectColor(usedColors: readonly string[]): string {
+  const free = PROJECT_COLORS.find((c) => !usedColors.includes(c))
+  return free ?? PROJECT_COLORS[usedColors.length % PROJECT_COLORS.length]!
 }
 
 export function createProject(path: string, name: string, color: string): Project {
@@ -249,6 +254,11 @@ export function reorderSession(
       return { ...p, sessionIds: moveInArray(p.sessionIds, from, toIndex) }
     }),
   }
+}
+
+/** The project owning the active session, or null when no session is active. */
+export function activeProjectId(ws: Workspace): string | null {
+  return ws.sessions.find((s) => s.id === ws.activeSessionId)?.projectId ?? null
 }
 
 /** The project that should receive a new session: the active session's, else the first. */

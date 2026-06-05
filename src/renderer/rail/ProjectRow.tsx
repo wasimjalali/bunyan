@@ -9,8 +9,10 @@ interface ProjectRowProps {
   index: number
   sessions: Session[]
   status: SessionStatus | null
+  active: boolean
   activeSessionId: string | null
   onToggleCollapse: () => void
+  onOpenProject: () => void
   onNewClaude: () => void
   onNewShell: () => void
   onRename: (name: string) => void
@@ -23,7 +25,7 @@ interface ProjectRowProps {
 }
 
 export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
-  const { project, sessions, status, activeSessionId } = props
+  const { project, sessions, status, active, activeSessionId } = props
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
@@ -67,7 +69,8 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           if (d?.kind === 'project') props.onReorderProject(d.projectId, props.index)
         }}
         className={[
-          'flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface/40',
+          'row-smooth flex items-center gap-2 rounded-md px-2 py-1.5',
+          active ? 'bg-surface/50' : 'hover:bg-surface/40',
           dropTarget ? 'ring-1 ring-gold' : '',
         ].join(' ')}
       >
@@ -81,29 +84,44 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           </span>
         </button>
 
-        <span
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-deep-navy"
-          style={{ backgroundColor: project.color }}
-        >
-          {project.name.charAt(0).toUpperCase()}
-        </span>
-
         {renaming ? (
-          <input
-            autoFocus
-            value={draftName}
-            onChange={(e) => setDraftName(e.target.value)}
-            onBlur={commitRename}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitRename()
-              if (e.key === 'Escape') setRenaming(false)
-            }}
-            className="min-w-0 flex-1 rounded bg-canvas px-1 text-sm text-ink outline-none ring-1 ring-gold"
-          />
+          <>
+            <span
+              className={chipClass(active)}
+              style={{ backgroundColor: project.color }}
+            >
+              {project.name.charAt(0).toUpperCase()}
+            </span>
+            <input
+              autoFocus
+              value={draftName}
+              onChange={(e) => setDraftName(e.target.value)}
+              onBlur={commitRename}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') commitRename()
+                if (e.key === 'Escape') setRenaming(false)
+              }}
+              className="min-w-0 flex-1 rounded bg-canvas px-1 text-sm text-ink outline-none ring-1 ring-gold"
+            />
+          </>
         ) : (
-          <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-            {project.name}
-          </span>
+          // Clicking the chip or name opens the project's first session, no
+          // expand needed. The chevron alone toggles collapse.
+          <button
+            onClick={props.onOpenProject}
+            title={`Open ${project.name}`}
+            className="group/open flex min-w-0 flex-1 items-center gap-2 text-left"
+          >
+            <span
+              className={`${chipClass(active)} group-hover/open:-translate-y-px`}
+              style={{ backgroundColor: project.color }}
+            >
+              {project.name.charAt(0).toUpperCase()}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+              {project.name}
+            </span>
+          </button>
         )}
 
         {project.branch && (
@@ -172,6 +190,15 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
       )}
     </div>
   )
+}
+
+// The project initial chip: raised with an inner highlight, gold-ringed when
+// the project owns the active session.
+function chipClass(active: boolean): string {
+  return [
+    'chip-raise flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-deep-navy',
+    active ? 'ring-1 ring-gold' : '',
+  ].join(' ')
 }
 
 function ActionButton(props: {

@@ -49,7 +49,7 @@ export function SessionRow({
       }}
       onClick={onFocus}
       className={[
-        'group/session relative flex cursor-pointer items-center gap-2 rounded-md py-1 pl-6 pr-2 text-sm',
+        'row-smooth group/session relative flex cursor-pointer items-center gap-2 rounded-md py-1 pl-6 pr-2 text-sm',
         active ? 'bg-surface text-ink' : 'text-ink-dim hover:bg-surface/40',
         dropTarget ? 'ring-1 ring-gold' : '',
       ].join(' ')}
