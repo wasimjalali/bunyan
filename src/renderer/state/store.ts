@@ -271,15 +271,15 @@ function paneList(node: PaneNode) {
 // then read its git branch once. Ignores folders that are already open.
 async function addOpenedProject(
   get: () => BunyanState,
-  set: (partial: Partial<BunyanState>) => void,
+  set: (partial: (s: BunyanState) => Partial<BunyanState>) => void,
   opened: OpenedProject,
 ): Promise<void> {
   const ws = get().workspace
   if (ws.projects.some((p) => p.path === opened.path)) return
   const project = createProject(opened.path, opened.name, nextProjectColor(ws.projects.length))
-  set({ workspace: addProject(ws, project) })
+  set((s) => ({ workspace: addProject(s.workspace, project) }))
   const branch = await window.bunyan.project.gitBranch({ path: opened.path })
   if (branch) {
-    set({ workspace: setProjectBranch(get().workspace, project.id, branch.branch) })
+    set((s) => ({ workspace: setProjectBranch(s.workspace, project.id, branch.branch) }))
   }
 }

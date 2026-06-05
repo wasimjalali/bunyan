@@ -7,6 +7,7 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { CursorStyle, Pane, SessionKind } from '@shared/types'
 import { registerPaneTerminal, unregisterPaneTerminal } from './registry'
+import { markScrollbackDirty } from './scrollback'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalPaneProps {
@@ -93,7 +94,9 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     registerPaneTerminal(pane.id, { term, search })
 
     const offData = window.bunyan.session.onData((e) => {
-      if (e.paneId === ptyId) term.write(e.data)
+      if (e.paneId !== ptyId) return
+      term.write(e.data)
+      markScrollbackDirty()
     })
     const offExit = window.bunyan.session.onExit((e) => {
       if (e.paneId === ptyId) term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')

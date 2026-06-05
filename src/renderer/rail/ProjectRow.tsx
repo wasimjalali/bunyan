@@ -60,7 +60,8 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           }
         }}
         onDragLeave={() => setDropTarget(false)}
-        onDrop={() => {
+        onDrop={(e) => {
+          e.stopPropagation()
           setDropTarget(false)
           const d = getDrag()
           if (d?.kind === 'project') props.onReorderProject(d.projectId, props.index)

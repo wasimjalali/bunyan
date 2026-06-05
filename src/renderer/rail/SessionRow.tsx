@@ -41,7 +41,8 @@ export function SessionRow({
         }
       }}
       onDragLeave={() => setDropTarget(false)}
-      onDrop={() => {
+      onDrop={(e) => {
+        e.stopPropagation()
         setDropTarget(false)
         const d = getDrag()
         if (d?.kind === 'session' && d.projectId === projectId) onReorder(d.sessionId, index)

@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useStore } from '../state/store'
 import { projectSessions, projectStatus } from '@shared/workspace'
 import { ProjectRow } from './ProjectRow'
-import { getDrag } from './dnd'
 
 export function Rail(): React.JSX.Element {
   const workspace = useStore((s) => s.workspace)
@@ -32,9 +31,10 @@ export function Rail(): React.JSX.Element {
     closeProject(projectId)
   }
 
-  // A folder dragged from Finder (external files), not an internal row reorder.
-  const isFolderDrag = (e: React.DragEvent): boolean =>
-    getDrag() === null && Array.from(e.dataTransfer.types).includes('Files')
+  // A folder dragged from Finder carries the 'Files' type; internal row
+  // reorders do not, so this alone distinguishes them. Row drop handlers also
+  // stopPropagation, so a reorder never reaches here.
+  const isFolderDrag = (e: React.DragEvent): boolean => e.dataTransfer.types.includes('Files')
 
   const onDrop = (e: React.DragEvent): void => {
     if (!isFolderDrag(e)) return

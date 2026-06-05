@@ -1,14 +1,9 @@
 import { useStore } from './store'
 import type { Workspace } from '@shared/types'
-import { captureAllScrollback } from '../terminal/scrollback'
+import { captureAllScrollback, captureScrollbackIfDirty } from '../terminal/scrollback'
 
 const SAVE_DEBOUNCE_MS = 400
 const SCROLLBACK_FLUSH_MS = 8000
-
-// Attach the freshly captured scrollback to a workspace before persisting.
-function withScrollback(ws: Workspace): Workspace {
-  return { ...ws, scrollback: captureAllScrollback() }
-}
 
 function save(ws: Workspace): void {
   window.bunyan.store.save(ws).catch((err) => {
@@ -20,13 +15,13 @@ function save(ws: Workspace): void {
 /**
  * Persists the workspace whenever it changes (debounced), and flushes captured
  * scrollback on a slow timer so a long-running session's output survives a
- * restart even when nothing else changed. Only runs after hydration, so the
+ * restart even when nothing else changed. The flush only does work when a pane
+ * has produced output since the last capture. Only runs after hydration, so the
  * freshly-loaded state is never echoed straight back. Returns an unsubscribe.
  */
 export function startPersistence(): () => void {
   let timer: ReturnType<typeof setTimeout> | null = null
   let lastSaved: Workspace | null = null
-  let lastScrollbackJson = ''
 
   const unsubscribe = useStore.subscribe((state) => {
     if (!state.hydrated) return
@@ -34,21 +29,17 @@ export function startPersistence(): () => void {
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       lastSaved = state.workspace
-      const snapshot = withScrollback(state.workspace)
-      lastScrollbackJson = JSON.stringify(snapshot.scrollback)
-      save(snapshot)
+      save({ ...state.workspace, scrollback: captureAllScrollback() })
     }, SAVE_DEBOUNCE_MS)
   })
 
-  // Periodic scrollback flush, independent of workspace edits.
+  // Periodic scrollback flush, independent of workspace edits. No-op when no
+  // pane has produced output since the last capture.
   const flush = setInterval(() => {
     const state = useStore.getState()
     if (!state.hydrated) return
-    const scrollback = captureAllScrollback()
-    const json = JSON.stringify(scrollback)
-    if (json === lastScrollbackJson) return
-    lastScrollbackJson = json
-    lastSaved = state.workspace
+    const scrollback = captureScrollbackIfDirty()
+    if (scrollback === null) return
     save({ ...state.workspace, scrollback })
   }, SCROLLBACK_FLUSH_MS)
 
