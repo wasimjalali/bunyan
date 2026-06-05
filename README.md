@@ -6,10 +6,11 @@ Bunyan (بُنيان) means a solid, firmly built structure.
 
 ## What it is
 
-- A right-hand rail that lists every project and its sessions.
+- A right-hand rail that lists every project and its sessions, drag to reorder, drop a folder to add a project.
 - Live status per session: working, needs you, idle.
 - macOS notifications and a dock badge when a Claude session needs you.
-- Split panes, a Cmd-K command palette, dark and light themes, and full workspace restore.
+- Split panes, a Cmd-K command palette, in-terminal search, dark and light themes.
+- Full workspace restore on reopen, including a dimmed replay of each pane's last output.
 
 ## Stack
 
@@ -23,6 +24,7 @@ npm run dev        # launch the app with HMR
 npm run typecheck  # tsc, both projects, zero errors
 npm run lint       # ESLint, zero warnings
 npm test           # Vitest unit suite
+npm run test:e2e   # Playwright-for-Electron smoke (builds first)
 npm run build      # bundle main, preload and renderer
 ```
 
@@ -46,6 +48,7 @@ src/
   preload/   # the single typed window.bunyan bridge
   renderer/  # React UI: app, rail, terminal, palette, search, settings, state, theme
   shared/    # data model, IPC contract, pure logic (pane-tree, workspace, fuzzy)
+e2e/         # Playwright-for-Electron smoke test
 ```
 
 The full v1 spec is in [`docs/specs/2026-06-05-bunyan-v1-spec.md`](docs/specs/2026-06-05-bunyan-v1-spec.md)

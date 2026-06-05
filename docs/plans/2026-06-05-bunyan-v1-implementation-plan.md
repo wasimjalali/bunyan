@@ -1,5 +1,11 @@
 # Bunyan v1, implementation plan
 
+> **Status: complete.** All six build phases shipped, plus the four section-17 gaps
+> (rail drag-reorder, folder drag-drop, per-pane scrollback restore, Playwright E2E).
+> `tsc` clean, ESLint clean, 93 unit tests and 3 Electron E2E tests green. Packaging
+> config is in place; producing a signed/notarised build is the only remaining
+> release-phase step.
+
 Derived from `docs/specs/2026-06-05-bunyan-v1-spec.md` section 16. Each phase is independently
 demoable and ends with: `npx tsc --noEmit` zero errors, ESLint clean, the phase's tests green.
 
