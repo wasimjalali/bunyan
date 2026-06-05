@@ -15,6 +15,8 @@ interface TerminalPaneProps {
   kind: SessionKind
   cwd: string
   projectName: string
+  /** Preferred shell; empty falls back to $SHELL in the main process. */
+  shell?: string
   /** A command to run once the shell is ready, e.g. "claude". */
   runOnStart?: string
   /** Optional dimmed scrollback from a previous run, written above the live prompt. */
@@ -32,8 +34,20 @@ interface TerminalPaneProps {
 const createdPtys = new Set<string>()
 
 export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
-  const { pane, sessionId, kind, cwd, projectName, runOnStart, restoreNote, theme, fontFamily, fontSize, cursorStyle } =
-    props
+  const {
+    pane,
+    sessionId,
+    kind,
+    cwd,
+    projectName,
+    shell,
+    runOnStart,
+    restoreNote,
+    theme,
+    fontFamily,
+    fontSize,
+    cursorStyle,
+  } = props
   const ptyId = pane.ptyId
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
@@ -55,7 +69,8 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     })
     const fit = new FitAddon()
     term.loadAddon(fit)
-    term.loadAddon(new SearchAddon())
+    const search = new SearchAddon()
+    term.loadAddon(search)
     term.loadAddon(new WebLinksAddon())
     const unicode = new Unicode11Addon()
     term.loadAddon(unicode)
@@ -75,7 +90,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     fit.fit()
     termRef.current = term
     fitRef.current = fit
-    registerPaneTerminal(pane.id, term)
+    registerPaneTerminal(pane.id, { term, search })
 
     const offData = window.bunyan.session.onData((e) => {
       if (e.paneId === ptyId) term.write(e.data)
@@ -92,7 +107,17 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       createdPtys.add(ptyId)
       if (restoreNote) term.write(restoreNote)
       void window.bunyan.session
-        .create({ sessionId, paneId: ptyId, kind, cwd, projectName, runOnStart, cols: term.cols, rows: term.rows })
+        .create({
+          sessionId,
+          paneId: ptyId,
+          kind,
+          cwd,
+          projectName,
+          shell: shell && shell.trim() !== '' ? shell : undefined,
+          runOnStart,
+          cols: term.cols,
+          rows: term.rows,
+        })
         .catch(() => {
           createdPtys.delete(ptyId)
           term.writeln('\x1b[31mCould not start the session.\x1b[0m')

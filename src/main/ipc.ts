@@ -12,6 +12,7 @@ import {
   validateResize,
   validateKill,
   validateGitBranch,
+  validateNotifyPrefs,
   ValidationError,
 } from './ipc-validate'
 
@@ -54,6 +55,11 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
 
   ipcMain.on(IPC.appActiveSession, (_e, raw) => {
     monitor.setActiveSession(typeof raw === 'string' ? raw : null)
+  })
+
+  ipcMain.on(IPC.appNotifyPrefs, (_e, raw) => {
+    const prefs = tryValidate(() => validateNotifyPrefs(raw))
+    if (prefs) monitor.setNotifyPrefs(prefs)
   })
 }
 

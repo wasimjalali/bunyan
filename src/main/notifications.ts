@@ -3,7 +3,7 @@ import { IPC } from '@shared/ipc'
 import type { FocusRequestEvent } from '@shared/ipc'
 
 export interface Notifier {
-  notify(sessionId: string, projectName: string): void
+  notify(sessionId: string, projectName: string, opts?: { silent?: boolean }): void
   setBadgeCount(count: number): void
 }
 
@@ -15,12 +15,12 @@ export interface Notifier {
 export class MacNotifier implements Notifier {
   constructor(private readonly win: BrowserWindow) {}
 
-  notify(sessionId: string, projectName: string): void {
+  notify(sessionId: string, projectName: string, opts: { silent?: boolean } = {}): void {
     if (!Notification.isSupported()) return
     const n = new Notification({
       title: projectName || 'Bunyan',
       body: 'Claude needs your input',
-      silent: false,
+      silent: opts.silent ?? true,
     })
     n.on('click', () => {
       if (this.win.isDestroyed()) return

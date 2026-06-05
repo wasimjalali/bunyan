@@ -16,6 +16,9 @@ import {
   projectStatus,
   projectSessions,
   needsInputCount,
+  sessionByOffset,
+  sessionByIndex,
+  activeOrFirstProjectId,
 } from './workspace'
 import { PROJECT_COLORS } from './types'
 
@@ -110,6 +113,28 @@ describe('workspace', () => {
     expect(needsInputCount(ws)).toBe(1)
     ws = setSessionStatus(ws, s2.id, 'idle')
     expect(projectStatus(ws, p.id)).toBe('working')
+  })
+
+  it('navigates sessions by offset with wraparound', () => {
+    const { p } = seed()
+    let ws = addProject(createDefaultWorkspace(), p)
+    const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
+    const s2 = createSession(p.id, 'shell', p.path, 'shell 2', 'pty_2')
+    ws = addSession(addSession(ws, s1), s2) // active is s2
+    expect(sessionByOffset(ws, 1)).toBe(s1.id) // wraps to start
+    expect(sessionByOffset(ws, -1)).toBe(s1.id)
+    expect(sessionByIndex(ws, 1)).toBe(s1.id)
+    expect(sessionByIndex(ws, 2)).toBe(s2.id)
+    expect(sessionByIndex(ws, 9)).toBeNull()
+  })
+
+  it('picks the active project, or the first, for a new session', () => {
+    const { p } = seed()
+    let ws = addProject(createDefaultWorkspace(), p)
+    expect(activeOrFirstProjectId(ws)).toBe(p.id) // no active -> first
+    const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
+    ws = addSession(ws, s1)
+    expect(activeOrFirstProjectId(ws)).toBe(p.id)
   })
 
   it('lists project sessions in rail order', () => {

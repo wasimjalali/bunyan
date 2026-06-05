@@ -2,7 +2,7 @@
 // The renderer never touches ipcRenderer directly; it talks to `window.bunyan`,
 // whose shape is `BunyanApi` below.
 
-import type { SessionKind, SessionStatus, Workspace } from './types'
+import type { BellMode, SessionKind, SessionStatus, Workspace } from './types'
 
 export const IPC = {
   sessionCreate: 'session:create',
@@ -18,7 +18,14 @@ export const IPC = {
   storeSave: 'store:save',
   appFocusRequest: 'app:focusRequest',
   appActiveSession: 'app:activeSession',
+  appNotifyPrefs: 'app:notifyPrefs',
 } as const
+
+/** The subset of settings the main process needs for notifications and the bell. */
+export interface NotifyPrefs {
+  notifications: boolean
+  bell: BellMode
+}
 
 // Bounds used by payload validation in the main process.
 export const LIMITS = {
@@ -122,6 +129,7 @@ export interface BunyanApi {
   }
   app: {
     setActiveSession(sessionId: string | null): void
+    setNotifyPrefs(prefs: NotifyPrefs): void
     onFocusRequest(cb: (e: FocusRequestEvent) => void): Unsubscribe
   }
 }

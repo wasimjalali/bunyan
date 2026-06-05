@@ -14,6 +14,7 @@ import type {
   SessionStatusEvent,
   SessionExitEvent,
   FocusRequestEvent,
+  NotifyPrefs,
   Unsubscribe,
 } from '@shared/ipc'
 import type { Workspace } from '@shared/types'
@@ -52,6 +53,7 @@ const api: BunyanApi = {
   app: {
     setActiveSession: (sessionId: string | null): void =>
       ipcRenderer.send(IPC.appActiveSession, sessionId),
+    setNotifyPrefs: (prefs: NotifyPrefs): void => ipcRenderer.send(IPC.appNotifyPrefs, prefs),
     onFocusRequest: (cb: (e: FocusRequestEvent) => void): Unsubscribe =>
       subscribe(IPC.appFocusRequest, cb),
   },

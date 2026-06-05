@@ -9,8 +9,9 @@ import type {
   SessionResizeRequest,
   SessionKillRequest,
   GitBranchRequest,
+  NotifyPrefs,
 } from '@shared/ipc'
-import type { SessionKind } from '@shared/types'
+import type { BellMode, SessionKind } from '@shared/types'
 
 class ValidationError extends Error {}
 
@@ -90,6 +91,15 @@ export function validateKill(raw: unknown): SessionKillRequest {
 export function validateGitBranch(raw: unknown): GitBranchRequest {
   const o = asObject(raw)
   return { path: str(o.path, 'path') }
+}
+
+const BELL_MODES: readonly BellMode[] = ['status-only', 'sound', 'off']
+export function validateNotifyPrefs(raw: unknown): NotifyPrefs {
+  const o = asObject(raw)
+  if (typeof o.notifications !== 'boolean') fail('notifications must be a boolean')
+  const bell = str(o.bell, 'bell', 16) as BellMode
+  if (!BELL_MODES.includes(bell)) fail('bell is not a valid mode')
+  return { notifications: o.notifications, bell }
 }
 
 function asObject(raw: unknown): Record<string, unknown> {

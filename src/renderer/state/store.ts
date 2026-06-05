@@ -35,6 +35,13 @@ interface BunyanState {
   focusedPaneId: string | null
   /** Dimmed "previous session" text to write into a restored pane, keyed by ptyId. */
   restoreNotes: Record<string, string>
+  /** Transient UI flags (not persisted). */
+  ui: {
+    paletteOpen: boolean
+    settingsOpen: boolean
+    searchOpen: boolean
+    railVisible: boolean
+  }
 
   hydrate(): Promise<void>
   openProject(): Promise<void>
@@ -51,6 +58,10 @@ interface BunyanState {
   setSplitRatio(anchorPaneId: string, ratio: number): void
   applyStatus(sessionId: string, status: Workspace['sessions'][number]['status']): void
   updateSettings(patch: Partial<Settings>): void
+  setPalette(open: boolean): void
+  setSettingsOpen(open: boolean): void
+  setSearch(open: boolean): void
+  toggleRail(): void
 }
 
 function firstPaneId(ws: Workspace, sessionId: string | null): string | null {
@@ -69,6 +80,7 @@ export const useStore = create<BunyanState>((set, get) => ({
   hydrated: false,
   focusedPaneId: null,
   restoreNotes: {},
+  ui: { paletteOpen: false, settingsOpen: false, searchOpen: false, railVisible: true },
 
   async hydrate() {
     const loaded = await window.bunyan.store.load()
@@ -209,6 +221,22 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   updateSettings(patch) {
     set((s) => ({ workspace: { ...s.workspace, settings: { ...s.workspace.settings, ...patch } } }))
+  },
+
+  setPalette(open) {
+    set((s) => ({ ui: { ...s.ui, paletteOpen: open } }))
+  },
+
+  setSettingsOpen(open) {
+    set((s) => ({ ui: { ...s.ui, settingsOpen: open } }))
+  },
+
+  setSearch(open) {
+    set((s) => ({ ui: { ...s.ui, searchOpen: open } }))
+  },
+
+  toggleRail() {
+    set((s) => ({ ui: { ...s.ui, railVisible: !s.ui.railVisible } }))
   },
 }))
 

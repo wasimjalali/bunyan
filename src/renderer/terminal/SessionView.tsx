@@ -7,6 +7,8 @@ import { TerminalPane } from './TerminalPane'
 interface SessionViewProps {
   session: Session
   projectName: string
+  /** Preferred shell from settings; empty means the main process uses $SHELL. */
+  shell: string
   focusedPaneId: string | null
   restoreNotes: Record<string, string>
   theme: ITheme
@@ -48,6 +50,7 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
           kind={props.session.kind}
           cwd={props.session.cwd}
           projectName={props.projectName}
+          shell={props.shell}
           runOnStart={runOnStart}
           restoreNote={props.restoreNotes[node.pane.ptyId]}
           theme={props.theme}

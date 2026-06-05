@@ -2,8 +2,12 @@ import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { startPersistence } from '../state/persistence'
 import { listPanes } from '@shared/pane-tree'
+import { activeOrFirstProjectId, sessionByIndex, sessionByOffset } from '@shared/workspace'
 import { Rail } from '../rail/Rail'
 import { SessionView } from '../terminal/SessionView'
+import { CommandPalette } from '../palette/CommandPalette'
+import { SettingsPanel } from '../settings/SettingsPanel'
+import { SearchBar } from '../search/SearchBar'
 import { BunyanMark } from './BunyanMark'
 import { useResolvedTheme } from '../theme/useTheme'
 
@@ -22,6 +26,7 @@ export function App(): React.JSX.Element {
   const openProject = useStore((s) => s.openProject)
   const updateSettings = useStore((s) => s.updateSettings)
 
+  const railVisible = useStore((s) => s.ui.railVisible)
   const [railWidth, setRailWidth] = useState(RAIL_DEFAULT)
   const settings = workspace.settings
   const theme = useResolvedTheme(settings.theme)
@@ -33,13 +38,18 @@ export function App(): React.JSX.Element {
   }, [hydrate])
 
   useMainEvents()
-  useGlobalKeys()
+  useKeymap()
 
   // Tell the main process which session is active so it can clear needs-input on
   // focus and decide when to notify.
   useEffect(() => {
     window.bunyan.app.setActiveSession(workspace.activeSessionId)
   }, [workspace.activeSessionId])
+
+  // Keep the main process in step with notification and bell preferences.
+  useEffect(() => {
+    window.bunyan.app.setNotifyPrefs({ notifications: settings.notifications, bell: settings.bell })
+  }, [settings.notifications, settings.bell])
 
   const activeSession = workspace.sessions.find((s) => s.id === workspace.activeSessionId) ?? null
   const activeProject = activeSession
@@ -76,6 +86,7 @@ export function App(): React.JSX.Element {
                   <SessionView
                     session={session}
                     projectName={project?.name ?? ''}
+                    shell={settings.defaultShell}
                     focusedPaneId={isActive ? focusedPaneId : null}
                     restoreNotes={restoreNotes}
                     theme={theme.xterm}
@@ -94,13 +105,21 @@ export function App(): React.JSX.Element {
               onOpenProject={() => void openProject()}
             />
           )}
+          <SearchBar />
         </main>
 
-        <RailDivider width={railWidth} onResize={setRailWidth} />
-        <div style={{ width: railWidth }} className="shrink-0">
-          <Rail />
-        </div>
+        {railVisible && (
+          <>
+            <RailDivider width={railWidth} onResize={setRailWidth} />
+            <div style={{ width: railWidth }} className="shrink-0">
+              <Rail />
+            </div>
+          </>
+        )}
       </div>
+
+      <CommandPalette />
+      <SettingsPanel />
     </div>
   )
 }
@@ -120,31 +139,78 @@ function useMainEvents(): void {
   }, [applyStatus, focusSession])
 }
 
-/** Phase 3 keybindings: split and close panes. The full keymap arrives in phase 5. */
-function useGlobalKeys(): void {
-  const splitActivePane = useStore((s) => s.splitActivePane)
-  const closePane = useStore((s) => s.closePane)
-
+/** The full keyboard map (spec 10.6). Reads live state via getState to stay current. */
+function useKeymap(): void {
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (!e.metaKey) return
+      const s = useStore.getState()
+      const ws = s.workspace
       const key = e.key.toLowerCase()
-      if (key === 'd') {
-        e.preventDefault()
-        splitActivePane(e.shiftKey ? 'col' : 'row')
-      } else if (key === 'w') {
-        e.preventDefault()
-        const { workspace, focusedPaneId } = useStore.getState()
-        const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
-        if (!session || !focusedPaneId) return
-        const lastPane = listPanes(session.layout).length <= 1
-        if (lastPane && !window.confirm(`Close the "${session.title}" session?`)) return
-        closePane(focusedPaneId)
+
+      // Digits 1..9 jump to a session by rail order.
+      if (/^[1-9]$/.test(key)) {
+        const id = sessionByIndex(ws, Number(key))
+        if (id) {
+          e.preventDefault()
+          s.focusSession(id)
+        }
+        return
+      }
+
+      switch (key) {
+        case 'k':
+          e.preventDefault()
+          s.setPalette(!s.ui.paletteOpen)
+          break
+        case 't': {
+          e.preventDefault()
+          const project = activeOrFirstProjectId(ws)
+          if (project) s.newSession(project, e.shiftKey ? 'shell' : 'claude')
+          break
+        }
+        case 'd':
+          e.preventDefault()
+          s.splitActivePane(e.shiftKey ? 'col' : 'row')
+          break
+        case 'w': {
+          e.preventDefault()
+          const session = ws.sessions.find((x) => x.id === ws.activeSessionId)
+          if (!session || !s.focusedPaneId) break
+          const lastPane = listPanes(session.layout).length <= 1
+          if (lastPane && !window.confirm(`Close the "${session.title}" session?`)) break
+          s.closePane(s.focusedPaneId)
+          break
+        }
+        case 'f':
+          e.preventDefault()
+          s.setSearch(true)
+          break
+        case 'b':
+          e.preventDefault()
+          s.toggleRail()
+          break
+        case 'o':
+          e.preventDefault()
+          void s.openProject()
+          break
+        case ',':
+          e.preventDefault()
+          s.setSettingsOpen(!s.ui.settingsOpen)
+          break
+        case ']':
+          e.preventDefault()
+          s.focusSession(sessionByOffset(ws, 1) ?? ws.activeSessionId)
+          break
+        case '[':
+          e.preventDefault()
+          s.focusSession(sessionByOffset(ws, -1) ?? ws.activeSessionId)
+          break
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [splitActivePane, closePane])
+  }, [])
 }
 
 function TitleBar({

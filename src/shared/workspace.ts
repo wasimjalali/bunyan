@@ -194,3 +194,30 @@ export function projectSessions(ws: Workspace, projectId: string): Session[] {
 export function needsInputCount(ws: Workspace): number {
   return ws.sessions.filter((s) => s.status === 'needs-input').length
 }
+
+/** All session ids in rail order: each project's sessions, in project order. */
+export function orderedSessionIds(ws: Workspace): string[] {
+  return ws.projects.flatMap((p) => p.sessionIds)
+}
+
+/** The session `step` away from the active one, wrapping around. Null if none. */
+export function sessionByOffset(ws: Workspace, step: number): string | null {
+  const order = orderedSessionIds(ws)
+  if (order.length === 0) return null
+  const current = ws.activeSessionId ? order.indexOf(ws.activeSessionId) : -1
+  if (current === -1) return order[0]!
+  const next = (current + step + order.length) % order.length
+  return order[next]!
+}
+
+/** The nth session (1-based) in rail order, for Cmd-1..9. Null if out of range. */
+export function sessionByIndex(ws: Workspace, oneBased: number): string | null {
+  return orderedSessionIds(ws)[oneBased - 1] ?? null
+}
+
+/** The project that should receive a new session: the active session's, else the first. */
+export function activeOrFirstProjectId(ws: Workspace): string | null {
+  const active = ws.sessions.find((s) => s.id === ws.activeSessionId)
+  if (active) return active.projectId
+  return ws.projects[0]?.id ?? null
+}

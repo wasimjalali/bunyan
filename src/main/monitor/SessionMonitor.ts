@@ -1,4 +1,4 @@
-import type { SessionStatus } from '@shared/types'
+import type { BellMode, SessionStatus } from '@shared/types'
 import type { Notifier } from '../notifications'
 import { nextStatus, aggregateStatus } from './state-machine'
 import {
@@ -36,6 +36,8 @@ export class SessionMonitor {
   private activeSessionId: string | null = null
   private windowFocused = true
   private readonly quietMs: number
+  private notificationsEnabled = true
+  private bellMode: BellMode = 'status-only'
 
   constructor(
     private readonly emit: MonitorEmit,
@@ -57,7 +59,7 @@ export class SessionMonitor {
     const sig = analyzeChunk(chunk)
     pane.tail = updateTail(pane.tail, chunk)
 
-    if (sig.bell) this.apply(ptyId, { type: 'bell' })
+    if (sig.bell && this.bellMode !== 'off') this.apply(ptyId, { type: 'bell' })
     if (sig.claudeConfirm) this.apply(ptyId, { type: 'claude-confirm' })
     if (sig.title && titleSuggestsWaiting(sig.title)) this.apply(ptyId, { type: 'claude-confirm' })
     if (sig.claudeWorking) this.apply(ptyId, { type: 'claude-working' })
@@ -90,6 +92,11 @@ export class SessionMonitor {
   setWindowFocused(focused: boolean): void {
     this.windowFocused = focused
     if (focused && this.activeSessionId) this.focusSession(this.activeSessionId)
+  }
+
+  setNotifyPrefs(prefs: { notifications: boolean; bell: BellMode }): void {
+    this.notificationsEnabled = prefs.notifications
+    this.bellMode = prefs.bell
   }
 
   dispose(): void {
@@ -150,8 +157,15 @@ export class SessionMonitor {
     const prev = this.sessionStatus.get(sessionId)
     if (agg === prev) return
 
-    if (agg === 'needs-input' && prev !== 'needs-input' && !this.isFocused(sessionId)) {
-      this.notifier.notify(sessionId, this.sessionLabel.get(sessionId) ?? '')
+    if (
+      agg === 'needs-input' &&
+      prev !== 'needs-input' &&
+      !this.isFocused(sessionId) &&
+      this.notificationsEnabled
+    ) {
+      this.notifier.notify(sessionId, this.sessionLabel.get(sessionId) ?? '', {
+        silent: this.bellMode !== 'sound',
+      })
     }
 
     this.sessionStatus.set(sessionId, agg)
