@@ -11,7 +11,7 @@
     "build": "electron-vite build",
     "preview": "electron-vite preview",
     "rebuild": "electron-rebuild -f -w node-pty",
-    "postinstall": "electron-rebuild -f -w node-pty",
+    "postinstall": "electron-rebuild -f -w node-pty && node scripts/fix-pty-perms.js",
     "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
     "lint": "eslint . --max-warnings 0",
     "format": "prettier --write .",
@@ -19,7 +19,8 @@
     "test:watch": "vitest",
     "test:e2e": "electron-vite build && playwright test",
     "icons": "bash scripts/make-icons.sh",
-    "pack": "electron-vite build && electron-builder --mac --universal"
+    "pack": "electron-vite build && electron-builder --mac --universal",
+    "app:local": "bash scripts/build-local-app.sh"
   },
   "build": {
     "appId": "com.wasimjalali.bunyan",

@@ -1,0 +1,20 @@
+{
+  "appId": "com.wasimjalali.bunyan",
+  "productName": "Bunyan",
+  "copyright": "Copyright © 2026 Wasim Jalali",
+  "npmRebuild": false,
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": ["out/**/*", "package.json"],
+  "asarUnpack": ["**/node_modules/node-pty/**"],
+  "mac": {
+    "category": "public.app-category.developer-tools",
+    "icon": "build/icon/icon.icns",
+    "hardenedRuntime": false,
+    "gatekeeperAssess": false,
+    "identity": null,
+    "target": [{ "target": "dir", "arch": "arm64" }]
+  }
+}
