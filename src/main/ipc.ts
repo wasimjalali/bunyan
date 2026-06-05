@@ -1,12 +1,16 @@
-import { ipcMain, type WebContents } from 'electron'
+import { ipcMain, type BrowserWindow, type WebContents } from 'electron'
 import { IPC } from '@shared/ipc'
 import type { SessionDataEvent, SessionExitEvent } from '@shared/ipc'
+import type { Workspace } from '@shared/types'
 import type { PtyManager } from './pty/PtyManager'
+import type { WorkspaceStore } from './store/WorkspaceStore'
+import { openProjectDialog, readGitBranch } from './project'
 import {
   validateCreate,
   validateWrite,
   validateResize,
   validateKill,
+  validateGitBranch,
   ValidationError,
 } from './ipc-validate'
 
@@ -42,6 +46,23 @@ export function registerSessionIpc(pty: PtyManager): void {
   ipcMain.handle(IPC.sessionKill, (_e, raw) => {
     const req = guard(() => validateKill(raw))
     pty.kill(req.paneId)
+  })
+}
+
+/** Folder picker and git-branch readout. */
+export function registerProjectIpc(win: BrowserWindow): void {
+  ipcMain.handle(IPC.projectOpenDialog, () => openProjectDialog(win))
+  ipcMain.handle(IPC.projectGitBranch, (_e, raw) => {
+    const req = guard(() => validateGitBranch(raw))
+    return readGitBranch(req.path)
+  })
+}
+
+/** Workspace load/save. */
+export function registerStoreIpc(store: WorkspaceStore): void {
+  ipcMain.handle(IPC.storeLoad, () => store.load())
+  ipcMain.handle(IPC.storeSave, (_e, raw) => {
+    store.save(raw as Workspace)
   })
 }
 

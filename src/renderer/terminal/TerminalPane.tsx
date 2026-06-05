@@ -5,30 +5,33 @@ import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
-import type { CursorStyle, SessionKind } from '@shared/types'
+import type { CursorStyle, Pane, SessionKind } from '@shared/types'
 import { registerPaneTerminal, unregisterPaneTerminal } from './registry'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalPaneProps {
-  paneId: string
+  pane: Pane
   sessionId: string
   kind: SessionKind
   cwd: string
+  /** Optional dimmed scrollback from a previous run, written above the live prompt. */
+  restoreNote?: string
   theme: ITheme
   fontFamily: string
   fontSize: number
   cursorStyle: CursorStyle
-  focused: boolean
   onFocus: () => void
 }
 
-// PTYs are created once per pane. This guards against React remounts spawning a
-// second shell for the same pane (we never run StrictMode for this reason, but
-// the guard makes the contract explicit and safe).
-const createdPanes = new Set<string>()
+// PTYs are created once per pty id. This guards against React remounts spawning
+// a second shell for the same pane (we never run StrictMode, but the guard makes
+// the contract explicit and safe).
+const createdPtys = new Set<string>()
 
 export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
-  const { paneId, sessionId, kind, cwd, theme, fontFamily, fontSize, cursorStyle } = props
+  const { pane, sessionId, kind, cwd, restoreNote, theme, fontFamily, fontSize, cursorStyle } =
+    props
+  const ptyId = pane.ptyId
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
@@ -69,32 +72,26 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     fit.fit()
     termRef.current = term
     fitRef.current = fit
-    registerPaneTerminal(paneId, term)
+    registerPaneTerminal(pane.id, term)
 
     const offData = window.bunyan.session.onData((e) => {
-      if (e.paneId === paneId) term.write(e.data)
+      if (e.paneId === ptyId) term.write(e.data)
     })
     const offExit = window.bunyan.session.onExit((e) => {
-      if (e.paneId === paneId) term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
+      if (e.paneId === ptyId) term.writeln('\r\n\x1b[2m[process exited]\x1b[0m')
     })
 
     // User keystrokes flow to the PTY.
-    const inputSub = term.onData((data) => window.bunyan.session.write({ paneId, data }))
+    const inputSub = term.onData((data) => window.bunyan.session.write({ paneId: ptyId, data }))
 
     // Subscribe before create so no early output is lost.
-    if (!createdPanes.has(paneId)) {
-      createdPanes.add(paneId)
+    if (!createdPtys.has(ptyId)) {
+      createdPtys.add(ptyId)
+      if (restoreNote) term.write(restoreNote)
       void window.bunyan.session
-        .create({
-          sessionId,
-          paneId,
-          kind,
-          cwd,
-          cols: term.cols,
-          rows: term.rows,
-        })
+        .create({ sessionId, paneId: ptyId, kind, cwd, cols: term.cols, rows: term.rows })
         .catch(() => {
-          createdPanes.delete(paneId)
+          createdPtys.delete(ptyId)
           term.writeln('\x1b[31mCould not start the session.\x1b[0m')
         })
     }
@@ -102,7 +99,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     const ro = new ResizeObserver(() => {
       if (!termRef.current || !fitRef.current) return
       fitRef.current.fit()
-      window.bunyan.session.resize({ paneId, cols: term.cols, rows: term.rows })
+      window.bunyan.session.resize({ paneId: ptyId, cols: term.cols, rows: term.rows })
     })
     ro.observe(host)
 
@@ -111,14 +108,14 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       offData()
       offExit()
       inputSub.dispose()
-      unregisterPaneTerminal(paneId)
+      unregisterPaneTerminal(pane.id)
       term.dispose()
       termRef.current = null
       fitRef.current = null
     }
     // Mount-once: identity props only. Visual props handled below.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [paneId, sessionId, kind, cwd])
+  }, [pane.id, ptyId, sessionId, kind, cwd])
 
   // Live theme / font updates without re-creating the terminal.
   useEffect(() => {
@@ -132,10 +129,6 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
   }, [theme, fontFamily, fontSize, cursorStyle])
 
   return (
-    <div
-      ref={hostRef}
-      onMouseDown={props.onFocus}
-      className="h-full w-full overflow-hidden px-2 pt-2"
-    />
+    <div ref={hostRef} onMouseDown={props.onFocus} className="h-full w-full overflow-hidden px-2 pt-2" />
   )
 }

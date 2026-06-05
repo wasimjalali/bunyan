@@ -1,16 +1,25 @@
-import { app, BrowserWindow } from 'electron'
+import { app, type BrowserWindow } from 'electron'
 import { createMainWindow } from './window'
 import { PtyManager } from './pty/PtyManager'
-import { registerSessionIpc, makePtyHooks } from './ipc'
+import { WorkspaceStore } from './store/WorkspaceStore'
+import { registerSessionIpc, registerProjectIpc, registerStoreIpc, makePtyHooks } from './ipc'
 
 let mainWindow: BrowserWindow | null = null
 let ptyManager: PtyManager | null = null
+const store = new WorkspaceStore()
 
 function bootstrap(): void {
-  mainWindow = createMainWindow()
+  mainWindow = createMainWindow({
+    bounds: store.loadBounds(),
+    onBoundsChanged: (bounds) => store.saveBounds(bounds),
+  })
+
   const hooks = makePtyHooks(mainWindow.webContents)
   ptyManager = new PtyManager(hooks)
+
   registerSessionIpc(ptyManager)
+  registerProjectIpc(mainWindow)
+  registerStoreIpc(store)
 
   mainWindow.on('closed', () => {
     mainWindow = null
@@ -20,8 +29,10 @@ function bootstrap(): void {
 app.whenReady().then(() => {
   bootstrap()
 
+  // Single-window product: re-show the existing window rather than re-bootstrap
+  // (which would double-register IPC handlers).
   app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) bootstrap()
+    mainWindow?.show()
   })
 })
 

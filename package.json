@@ -20,7 +20,7 @@
     "pack": "electron-vite build && electron-builder --mac --universal"
   },
   "dependencies": {
-    "electron-store": "^10.0.0",
+    "electron-store": "^8.2.0",
     "node-pty": "^1.0.0"
   },
   "devDependencies": {

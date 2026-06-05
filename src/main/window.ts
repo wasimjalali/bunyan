@@ -1,8 +1,14 @@
 import { BrowserWindow, session, shell } from 'electron'
 import path from 'node:path'
+import type { WindowBounds } from '@shared/types'
 
 const DEEP_NAVY = '#0C1929'
 const isDev = !!process.env.ELECTRON_RENDERER_URL
+
+interface WindowOptions {
+  bounds?: WindowBounds | null
+  onBoundsChanged?: (bounds: WindowBounds) => void
+}
 
 /** Content-Security-Policy. Strict in production; relaxed just enough for Vite HMR in dev. */
 function cspHeader(): string {
@@ -27,7 +33,7 @@ function cspHeader(): string {
   ].join('; ')
 }
 
-export function createMainWindow(): BrowserWindow {
+export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
   session.defaultSession.webRequest.onHeadersReceived((details, cb) => {
     cb({
       responseHeaders: {
@@ -37,9 +43,11 @@ export function createMainWindow(): BrowserWindow {
     })
   })
 
+  const saved = options.bounds
   const win = new BrowserWindow({
-    width: 1200,
-    height: 800,
+    width: saved?.width ?? 1200,
+    height: saved?.height ?? 800,
+    ...(saved ? { x: saved.x, y: saved.y } : {}),
     minWidth: 720,
     minHeight: 480,
     show: false,
@@ -56,6 +64,12 @@ export function createMainWindow(): BrowserWindow {
   })
 
   win.once('ready-to-show', () => win.show())
+
+  if (options.onBoundsChanged) {
+    const report = (): void => options.onBoundsChanged!(win.getBounds())
+    win.on('resized', report)
+    win.on('moved', report)
+  }
 
   // External links open in the user's browser, never inside the app.
   win.webContents.setWindowOpenHandler(({ url }) => {
