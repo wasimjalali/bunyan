@@ -59,6 +59,9 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     const host = hostRef.current
     if (!host) return
 
+    // Guards the async create() callback against a terminal disposed mid-flight.
+    let disposed = false
+
     const term = new Terminal({
       fontFamily,
       fontSize,
@@ -123,7 +126,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
         })
         .catch(() => {
           createdPtys.delete(ptyId)
-          term.writeln('\x1b[31mCould not start the session.\x1b[0m')
+          if (!disposed) term.writeln('\x1b[31mCould not start the session.\x1b[0m')
         })
     }
 
@@ -135,6 +138,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     ro.observe(host)
 
     return () => {
+      disposed = true
       ro.disconnect()
       offData()
       offExit()

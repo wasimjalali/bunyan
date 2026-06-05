@@ -280,12 +280,12 @@ function RailDivider({
   onResize: (w: number) => void
 }): React.JSX.Element {
   const dragging = useRef(false)
+  const clamp = (n: number): number => Math.min(RAIL_MAX, Math.max(RAIL_MIN, n))
 
   useEffect(() => {
     const onMove = (e: MouseEvent): void => {
       if (!dragging.current) return
-      const next = window.innerWidth - e.clientX
-      onResize(Math.min(RAIL_MAX, Math.max(RAIL_MIN, next)))
+      onResize(clamp(window.innerWidth - e.clientX))
     }
     const onUp = (): void => {
       dragging.current = false
@@ -296,14 +296,35 @@ function RailDivider({
     return () => {
       window.removeEventListener('mousemove', onMove)
       window.removeEventListener('mouseup', onUp)
+      // If we unmount mid-drag, don't leave the resize cursor stuck.
+      document.body.style.cursor = ''
     }
   }, [onResize])
 
   return (
     <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Rail width"
+      aria-valuemin={RAIL_MIN}
+      aria-valuemax={RAIL_MAX}
+      aria-valuenow={width}
+      tabIndex={0}
       onMouseDown={() => {
         dragging.current = true
         document.body.style.cursor = 'col-resize'
+      }}
+      onKeyDown={(e) => {
+        const step = e.shiftKey ? 24 : 8
+        // Arrow keys widen/narrow the rail (the rail sits on the right, so
+        // ArrowLeft widens it).
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault()
+          onResize(clamp(width + step))
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault()
+          onResize(clamp(width - step))
+        }
       }}
       title={`Rail width ${width}px`}
       className="w-1 shrink-0 cursor-col-resize bg-transparent hover:bg-gold/30"

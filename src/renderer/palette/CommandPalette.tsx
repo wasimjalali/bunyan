@@ -74,7 +74,7 @@ export function CommandPalette(): React.JSX.Element | null {
       setPalette(false)
     } else if (e.key === 'ArrowDown') {
       e.preventDefault()
-      setSelected((i) => Math.min(results.length - 1, i + 1))
+      setSelected((i) => (results.length > 0 ? Math.min(results.length - 1, i + 1) : 0))
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       setSelected((i) => Math.max(0, i - 1))
@@ -87,15 +87,14 @@ export function CommandPalette(): React.JSX.Element | null {
   return (
     <div
       className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]"
-      onMouseDown={() => setPalette(false)}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setPalette(false)
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div
-        className="overlay-panel w-[560px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="overlay-panel w-[560px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl">
         <input
           ref={inputRef}
           value={query}

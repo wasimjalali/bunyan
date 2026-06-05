@@ -5,6 +5,7 @@ import {
   validateResize,
   validateKill,
   validateGitBranch,
+  validateNotifyPrefs,
 } from './ipc-validate'
 
 const goodCreate = {
@@ -59,5 +60,20 @@ describe('ipc-validate', () => {
   it('validates a git branch request', () => {
     expect(validateGitBranch({ path: '/repo' }).path).toBe('/repo')
     expect(() => validateGitBranch({})).toThrow()
+  })
+
+  it('accepts a safe runOnStart command but rejects control characters', () => {
+    expect(validateCreate({ ...goodCreate, runOnStart: 'claude' }).runOnStart).toBe('claude')
+    expect(() => validateCreate({ ...goodCreate, runOnStart: 'claude\nrm -rf /' })).toThrow()
+  })
+
+  it('validates notification preferences', () => {
+    expect(validateNotifyPrefs({ notifications: true, bell: 'sound' })).toEqual({
+      notifications: true,
+      bell: 'sound',
+    })
+    expect(validateNotifyPrefs({ notifications: false, bell: 'off' }).bell).toBe('off')
+    expect(() => validateNotifyPrefs({ notifications: 'yes', bell: 'off' })).toThrow()
+    expect(() => validateNotifyPrefs({ notifications: true, bell: 'kaboom' })).toThrow()
   })
 })

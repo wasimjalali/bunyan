@@ -24,15 +24,14 @@ export function SettingsPanel(): React.JSX.Element | null {
   return (
     <div
       className="overlay-backdrop fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[10vh]"
-      onMouseDown={() => setSettingsOpen(false)}
+      onClick={(e) => {
+        if (e.target === e.currentTarget) setSettingsOpen(false)
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Settings"
     >
-      <div
-        className="overlay-panel w-[440px] max-w-[92vw] rounded-xl border border-line bg-surface shadow-2xl"
-        onMouseDown={(e) => e.stopPropagation()}
-      >
+      <div className="overlay-panel w-[440px] max-w-[92vw] rounded-xl border border-line bg-surface shadow-2xl">
         <header className="flex items-center justify-between border-b border-line px-4 py-3">
           <h2 className="font-[family-name:var(--font-wordmark)] text-base font-semibold text-ink">
             Settings

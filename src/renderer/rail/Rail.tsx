@@ -58,7 +58,10 @@ export function Rail(): React.JSX.Element {
           setFolderOver(true)
         }
       }}
-      onDragLeave={() => setFolderOver(false)}
+      onDragLeave={(e) => {
+        // Ignore leave events fired when crossing into a child element.
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFolderOver(false)
+      }}
       onDrop={onDrop}
     >
       <header className="drag-region flex h-9 shrink-0 items-center justify-between px-3">
