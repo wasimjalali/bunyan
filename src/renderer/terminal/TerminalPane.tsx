@@ -14,6 +14,9 @@ interface TerminalPaneProps {
   sessionId: string
   kind: SessionKind
   cwd: string
+  projectName: string
+  /** A command to run once the shell is ready, e.g. "claude". */
+  runOnStart?: string
   /** Optional dimmed scrollback from a previous run, written above the live prompt. */
   restoreNote?: string
   theme: ITheme
@@ -29,7 +32,7 @@ interface TerminalPaneProps {
 const createdPtys = new Set<string>()
 
 export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
-  const { pane, sessionId, kind, cwd, restoreNote, theme, fontFamily, fontSize, cursorStyle } =
+  const { pane, sessionId, kind, cwd, projectName, runOnStart, restoreNote, theme, fontFamily, fontSize, cursorStyle } =
     props
   const ptyId = pane.ptyId
   const hostRef = useRef<HTMLDivElement>(null)
@@ -89,7 +92,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       createdPtys.add(ptyId)
       if (restoreNote) term.write(restoreNote)
       void window.bunyan.session
-        .create({ sessionId, paneId: ptyId, kind, cwd, cols: term.cols, rows: term.rows })
+        .create({ sessionId, paneId: ptyId, kind, cwd, projectName, runOnStart, cols: term.cols, rows: term.rows })
         .catch(() => {
           createdPtys.delete(ptyId)
           term.writeln('\x1b[31mCould not start the session.\x1b[0m')

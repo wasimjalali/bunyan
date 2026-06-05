@@ -32,7 +32,14 @@ export function App(): React.JSX.Element {
     return stop
   }, [hydrate])
 
+  useMainEvents()
   useGlobalKeys()
+
+  // Tell the main process which session is active so it can clear needs-input on
+  // focus and decide when to notify.
+  useEffect(() => {
+    window.bunyan.app.setActiveSession(workspace.activeSessionId)
+  }, [workspace.activeSessionId])
 
   const activeSession = workspace.sessions.find((s) => s.id === workspace.activeSessionId) ?? null
   const activeProject = activeSession
@@ -49,21 +56,39 @@ export function App(): React.JSX.Element {
         onToggleTheme={() => updateSettings({ theme: theme.mode === 'dark' ? 'light' : 'dark' })}
       />
       <div className="flex min-h-0 flex-1">
-        <main className="min-h-0 min-w-0 flex-1">
-          {!hydrated ? null : activeSession ? (
-            <SessionView
-              key={activeSession.id}
-              session={activeSession}
-              focusedPaneId={focusedPaneId}
-              restoreNotes={restoreNotes}
-              theme={theme.xterm}
-              fontFamily={settings.fontFamily}
-              fontSize={settings.fontSize}
-              cursorStyle={settings.cursorStyle}
-              onFocusPane={focusPane}
-              onSetRatio={setSplitRatio}
-            />
-          ) : (
+        <main className="relative min-h-0 min-w-0 flex-1">
+          {/*
+            Every session stays mounted so background sessions keep receiving
+            output (the whole point of running several Claudes at once). Only the
+            active one is visible; the rest are kept laid-out-but-hidden so their
+            terminals retain size and scrollback.
+          */}
+          {hydrated &&
+            workspace.sessions.map((session) => {
+              const isActive = session.id === workspace.activeSessionId
+              const project = workspace.projects.find((p) => p.id === session.projectId)
+              return (
+                <div
+                  key={session.id}
+                  className={['absolute inset-0', isActive ? '' : 'invisible'].join(' ')}
+                  aria-hidden={!isActive}
+                >
+                  <SessionView
+                    session={session}
+                    projectName={project?.name ?? ''}
+                    focusedPaneId={isActive ? focusedPaneId : null}
+                    restoreNotes={restoreNotes}
+                    theme={theme.xterm}
+                    fontFamily={settings.fontFamily}
+                    fontSize={settings.fontSize}
+                    cursorStyle={settings.cursorStyle}
+                    onFocusPane={focusPane}
+                    onSetRatio={setSplitRatio}
+                  />
+                </div>
+              )
+            })}
+          {hydrated && !activeSession && (
             <EmptyState
               hasProjects={workspace.projects.length > 0}
               onOpenProject={() => void openProject()}
@@ -78,6 +103,21 @@ export function App(): React.JSX.Element {
       </div>
     </div>
   )
+}
+
+/** Subscribes to main-process streams: session status updates and focus requests. */
+function useMainEvents(): void {
+  const applyStatus = useStore((s) => s.applyStatus)
+  const focusSession = useStore((s) => s.focusSession)
+
+  useEffect(() => {
+    const offStatus = window.bunyan.session.onStatus((e) => applyStatus(e.sessionId, e.status))
+    const offFocus = window.bunyan.app.onFocusRequest((e) => focusSession(e.sessionId))
+    return () => {
+      offStatus()
+      offFocus()
+    }
+  }, [applyStatus, focusSession])
 }
 
 /** Phase 3 keybindings: split and close panes. The full keymap arrives in phase 5. */

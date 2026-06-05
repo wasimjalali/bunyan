@@ -17,6 +17,7 @@ export const IPC = {
   storeLoad: 'store:load',
   storeSave: 'store:save',
   appFocusRequest: 'app:focusRequest',
+  appActiveSession: 'app:activeSession',
 } as const
 
 // Bounds used by payload validation in the main process.
@@ -38,6 +39,10 @@ export interface SessionCreateRequest {
   shell?: string
   cols: number
   rows: number
+  /** Project name, used only as the notification title when this session needs input. */
+  projectName?: string
+  /** A command to run once the shell is ready (e.g. "claude" for a Claude session). */
+  runOnStart?: string
 }
 
 export interface SessionCreateResult {
@@ -116,6 +121,7 @@ export interface BunyanApi {
     save(workspace: Workspace): Promise<void>
   }
   app: {
+    setActiveSession(sessionId: string | null): void
     onFocusRequest(cb: (e: FocusRequestEvent) => void): Unsubscribe
   }
 }

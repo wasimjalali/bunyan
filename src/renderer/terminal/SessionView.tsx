@@ -6,6 +6,7 @@ import { TerminalPane } from './TerminalPane'
 
 interface SessionViewProps {
   session: Session
+  projectName: string
   focusedPaneId: string | null
   restoreNotes: Record<string, string>
   theme: ITheme
@@ -28,6 +29,13 @@ export function SessionView(props: SessionViewProps): React.JSX.Element {
 function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element {
   if (node.type === 'leaf') {
     const focused = props.focusedPaneId === null || props.focusedPaneId === node.pane.id
+    // Only the session's original (first) pane auto-launches Claude; splits are
+    // plain shells alongside it.
+    const isFirstPane = listPanes(props.session.layout)[0]?.id === node.pane.id
+    const runOnStart =
+      props.session.kind === 'claude' && props.session.autoRelaunch && isFirstPane
+        ? 'claude'
+        : undefined
     return (
       <div
         className={['h-full w-full border-t-2', focused ? 'border-gold/70' : 'border-transparent'].join(
@@ -39,6 +47,8 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
           sessionId={props.session.id}
           kind={props.session.kind}
           cwd={props.session.cwd}
+          projectName={props.projectName}
+          runOnStart={runOnStart}
           restoreNote={props.restoreNotes[node.pane.ptyId]}
           theme={props.theme}
           fontFamily={props.fontFamily}

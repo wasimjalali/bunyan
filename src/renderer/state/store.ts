@@ -73,6 +73,11 @@ export const useStore = create<BunyanState>((set, get) => ({
   async hydrate() {
     const loaded = await window.bunyan.store.load()
     const workspace = loaded ?? createDefaultWorkspace()
+    // The claude-auto-relaunch setting governs restore: when it's off, restored
+    // Claude sessions come back as plain shells (no auto `claude`).
+    if (loaded && !workspace.settings.claudeAutoRelaunch) {
+      workspace.sessions = workspace.sessions.map((s) => ({ ...s, autoRelaunch: false }))
+    }
     // Build a dimmed restore note for every restored pane.
     const restoreNotes: Record<string, string> = {}
     for (const session of workspace.sessions) {

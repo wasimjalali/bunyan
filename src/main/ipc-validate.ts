@@ -51,7 +51,18 @@ export function validateCreate(raw: unknown): SessionCreateRequest {
     shell: o.shell === undefined ? undefined : str(o.shell, 'shell'),
     cols: dim(o.cols, 'cols', LIMITS.minCols, LIMITS.maxCols),
     rows: dim(o.rows, 'rows', LIMITS.minRows, LIMITS.maxRows),
+    projectName: o.projectName === undefined ? undefined : str(o.projectName, 'projectName', 256),
+    runOnStart: o.runOnStart === undefined ? undefined : safeCommand(o.runOnStart),
   }
+}
+
+// A start-up command must be a short single line (no control chars, no newline
+// injection). The renderer only ever sends "claude"; this keeps it honest.
+function safeCommand(v: unknown): string {
+  const s = str(v, 'runOnStart', 64)
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(s)) fail('runOnStart must be a single plain line')
+  return s
 }
 
 export function validateWrite(raw: unknown): SessionWriteRequest {

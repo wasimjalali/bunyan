@@ -2,26 +2,41 @@ import { app, type BrowserWindow } from 'electron'
 import { createMainWindow } from './window'
 import { PtyManager } from './pty/PtyManager'
 import { WorkspaceStore } from './store/WorkspaceStore'
-import { registerSessionIpc, registerProjectIpc, registerStoreIpc, makePtyHooks } from './ipc'
+import { SessionMonitor } from './monitor/SessionMonitor'
+import { MacNotifier } from './notifications'
+import {
+  registerSessionIpc,
+  registerProjectIpc,
+  registerStoreIpc,
+  makePtyHooks,
+  makeMonitorEmit,
+} from './ipc'
 
 let mainWindow: BrowserWindow | null = null
 let ptyManager: PtyManager | null = null
+let monitor: SessionMonitor | null = null
 const store = new WorkspaceStore()
 
 function bootstrap(): void {
-  mainWindow = createMainWindow({
+  const win = createMainWindow({
     bounds: store.loadBounds(),
     onBoundsChanged: (bounds) => store.saveBounds(bounds),
   })
+  mainWindow = win
 
-  const hooks = makePtyHooks(mainWindow.webContents)
-  ptyManager = new PtyManager(hooks)
+  const notifier = new MacNotifier(win)
+  monitor = new SessionMonitor(makeMonitorEmit(win.webContents), notifier)
+  ptyManager = new PtyManager(makePtyHooks(win.webContents, monitor))
 
-  registerSessionIpc(ptyManager)
-  registerProjectIpc(mainWindow)
+  registerSessionIpc(ptyManager, monitor)
+  registerProjectIpc(win)
   registerStoreIpc(store)
 
-  mainWindow.on('closed', () => {
+  // Window focus feeds the monitor so a focused session clears its needs-input.
+  win.on('focus', () => monitor?.setWindowFocused(true))
+  win.on('blur', () => monitor?.setWindowFocused(false))
+
+  win.on('closed', () => {
     mainWindow = null
   })
 }
@@ -38,10 +53,12 @@ app.whenReady().then(() => {
 
 // macOS-only app: quit when the window closes (single-window product).
 app.on('window-all-closed', () => {
+  monitor?.dispose()
   ptyManager?.killAll()
   app.quit()
 })
 
 app.on('before-quit', () => {
+  monitor?.dispose()
   ptyManager?.killAll()
 })

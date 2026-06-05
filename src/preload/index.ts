@@ -50,6 +50,8 @@ const api: BunyanApi = {
     save: (workspace: Workspace): Promise<void> => ipcRenderer.invoke(IPC.storeSave, workspace),
   },
   app: {
+    setActiveSession: (sessionId: string | null): void =>
+      ipcRenderer.send(IPC.appActiveSession, sessionId),
     onFocusRequest: (cb: (e: FocusRequestEvent) => void): Unsubscribe =>
       subscribe(IPC.appFocusRequest, cb),
   },

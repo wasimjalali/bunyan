@@ -8,7 +8,13 @@ export interface SpawnOptions {
   shell?: string
   cols: number
   rows: number
+  /** A command written to the shell once it has had a moment to initialise. */
+  runOnStart?: string
 }
+
+// Give the login shell a beat to run its rc files before we type into it, so a
+// Claude session's `claude` lands at a real prompt rather than mid-init.
+const RUN_ON_START_DELAY_MS = 300
 
 export interface PtyManagerHooks {
   onData(ptyId: string, data: string): void
@@ -53,6 +59,15 @@ export class PtyManager {
     })
 
     this.ptys.set(opts.ptyId, pty)
+
+    if (opts.runOnStart) {
+      const command = opts.runOnStart
+      setTimeout(() => {
+        // Only run if the PTY is still the one we spawned (not killed meanwhile).
+        if (this.ptys.get(opts.ptyId) === pty) pty.write(`${command}\r`)
+      }, RUN_ON_START_DELAY_MS)
+    }
+
     return opts.ptyId
   }
 
