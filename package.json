@@ -17,6 +17,7 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:e2e": "electron-vite build && playwright test",
     "icons": "bash scripts/make-icons.sh",
     "pack": "electron-vite build && electron-builder --mac --universal"
   },
@@ -64,6 +65,7 @@
   "devDependencies": {
     "@electron/rebuild": "^3.7.0",
     "@eslint/js": "^9.17.0",
+    "@playwright/test": "^1.49.0",
     "@tailwindcss/vite": "^4.0.0",
     "@testing-library/jest-dom": "^6.6.0",
     "@testing-library/react": "^16.1.0",

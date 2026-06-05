@@ -13,6 +13,7 @@ export const IPC = {
   sessionStatus: 'session:status',
   sessionExit: 'session:exit',
   projectOpenDialog: 'project:openDialog',
+  projectFromPath: 'project:fromPath',
   projectGitBranch: 'project:gitBranch',
   storeLoad: 'store:load',
   storeSave: 'store:save',
@@ -121,6 +122,8 @@ export interface BunyanApi {
   }
   project: {
     openDialog(): Promise<OpenedProject | null>
+    /** Resolve a dropped path to a project, or null if it is not a directory. */
+    fromPath(path: string): Promise<OpenedProject | null>
     gitBranch(req: GitBranchRequest): Promise<GitBranchResult | null>
   }
   store: {
@@ -130,6 +133,8 @@ export interface BunyanApi {
   app: {
     setActiveSession(sessionId: string | null): void
     setNotifyPrefs(prefs: NotifyPrefs): void
+    /** The filesystem path of a dropped File (Electron webUtils). Empty if unknown. */
+    pathForFile(file: File): string
     onFocusRequest(cb: (e: FocusRequestEvent) => void): Unsubscribe
   }
 }

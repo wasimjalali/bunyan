@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { PaneNode, SessionKind, Settings, SplitDir, Workspace } from '@shared/types'
+import type { OpenedProject } from '@shared/ipc'
 import { makeId } from '@shared/id'
 import {
   listPanes,
@@ -26,6 +27,8 @@ import {
   setActiveSession,
   setSessionStatus,
   setSessionLayout,
+  reorderProject,
+  reorderSession,
 } from '@shared/workspace'
 
 interface BunyanState {
@@ -45,12 +48,15 @@ interface BunyanState {
 
   hydrate(): Promise<void>
   openProject(): Promise<void>
+  addProjectFromPath(path: string): Promise<void>
   newSession(projectId: string, kind: SessionKind): void
   closeSession(sessionId: string): void
   closeProject(projectId: string): void
   rename(projectId: string, name: string): void
   recolor(projectId: string, color: string): void
   collapse(projectId: string): void
+  reorderProject(projectId: string, toIndex: number): void
+  reorderSession(projectId: string, sessionId: string, toIndex: number): void
   focusSession(sessionId: string | null): void
   focusPane(paneId: string): void
   splitActivePane(dir: SplitDir): void
@@ -71,9 +77,20 @@ function firstPaneId(ws: Workspace, sessionId: string | null): string | null {
   return listPanes(session.layout)[0]?.id ?? null
 }
 
-const RESTORE_NOTE = (cwd: string): string =>
-  `\x1b[2m  Previous session restored. A live shell follows; the old process is gone.\r\n` +
-  `  ${cwd}\x1b[0m\r\n\r\n`
+const DIM = '\x1b[2m'
+const RESET = '\x1b[0m'
+
+// The dimmed block written above the live prompt of a restored pane. Includes
+// the captured scrollback when there is some, then an honest separator: the old
+// process is gone, a fresh shell follows.
+function restoreNote(cwd: string, scrollback?: string): string {
+  const body = scrollback ? `${DIM}${scrollback}${RESET}\r\n` : ''
+  return (
+    body +
+    `${DIM}── Previous session restored. A live shell follows; the old process is gone.\r\n` +
+    `   ${cwd}${RESET}\r\n\r\n`
+  )
+}
 
 export const useStore = create<BunyanState>((set, get) => ({
   workspace: createDefaultWorkspace(),
@@ -90,11 +107,13 @@ export const useStore = create<BunyanState>((set, get) => ({
     if (loaded && !workspace.settings.claudeAutoRelaunch) {
       workspace.sessions = workspace.sessions.map((s) => ({ ...s, autoRelaunch: false }))
     }
-    // Build a dimmed restore note for every restored pane.
+    // Build a dimmed restore note for every restored pane, including its saved
+    // scrollback when we have it. Keyed by ptyId (what TerminalPane writes into).
     const restoreNotes: Record<string, string> = {}
+    const scrollback = workspace.scrollback ?? {}
     for (const session of workspace.sessions) {
       for (const pane of paneList(session.layout)) {
-        restoreNotes[pane.ptyId] = RESTORE_NOTE(session.cwd)
+        restoreNotes[pane.ptyId] = restoreNote(session.cwd, scrollback[pane.id])
       }
     }
     set({
@@ -107,16 +126,12 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   async openProject() {
     const opened = await window.bunyan.project.openDialog()
-    if (!opened) return
-    const ws = get().workspace
-    if (ws.projects.some((p) => p.path === opened.path)) return // already open
-    const project = createProject(opened.path, opened.name, nextProjectColor(ws.projects.length))
-    set({ workspace: addProject(ws, project) })
-    // Read the git branch once, asynchronously.
-    const branch = await window.bunyan.project.gitBranch({ path: opened.path })
-    if (branch) {
-      set((s) => ({ workspace: setProjectBranch(s.workspace, project.id, branch.branch) }))
-    }
+    if (opened) await addOpenedProject(get, set, opened)
+  },
+
+  async addProjectFromPath(path) {
+    const opened = await window.bunyan.project.fromPath(path)
+    if (opened) await addOpenedProject(get, set, opened)
   },
 
   newSession(projectId, kind) {
@@ -163,6 +178,14 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   collapse(projectId) {
     set((s) => ({ workspace: toggleCollapse(s.workspace, projectId) }))
+  },
+
+  reorderProject(projectId, toIndex) {
+    set((s) => ({ workspace: reorderProject(s.workspace, projectId, toIndex) }))
+  },
+
+  reorderSession(projectId, sessionId, toIndex) {
+    set((s) => ({ workspace: reorderSession(s.workspace, projectId, sessionId, toIndex) }))
   },
 
   focusSession(sessionId) {
@@ -242,4 +265,21 @@ export const useStore = create<BunyanState>((set, get) => ({
 
 function paneList(node: PaneNode) {
   return listPanes(node)
+}
+
+// Shared by openProject (dialog) and addProjectFromPath (drop): add the project,
+// then read its git branch once. Ignores folders that are already open.
+async function addOpenedProject(
+  get: () => BunyanState,
+  set: (partial: Partial<BunyanState>) => void,
+  opened: OpenedProject,
+): Promise<void> {
+  const ws = get().workspace
+  if (ws.projects.some((p) => p.path === opened.path)) return
+  const project = createProject(opened.path, opened.name, nextProjectColor(ws.projects.length))
+  set({ workspace: addProject(ws, project) })
+  const branch = await window.bunyan.project.gitBranch({ path: opened.path })
+  if (branch) {
+    set({ workspace: setProjectBranch(get().workspace, project.id, branch.branch) })
+  }
 }

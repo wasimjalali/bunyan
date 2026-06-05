@@ -34,5 +34,14 @@ export default tseslint.config(
       'no-console': 'off',
     },
   },
+  {
+    // E2E specs drive the app from the renderer context where window.bunyan is
+    // untyped; allow the casts that requires.
+    files: ['e2e/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'no-console': 'off',
+    },
+  },
   prettier,
 )

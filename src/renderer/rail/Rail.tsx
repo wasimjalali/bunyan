@@ -1,10 +1,14 @@
+import { useState } from 'react'
 import { useStore } from '../state/store'
 import { projectSessions, projectStatus } from '@shared/workspace'
 import { ProjectRow } from './ProjectRow'
+import { getDrag } from './dnd'
 
 export function Rail(): React.JSX.Element {
   const workspace = useStore((s) => s.workspace)
   const openProject = useStore((s) => s.openProject)
+  const addProjectFromPath = useStore((s) => s.addProjectFromPath)
+  const [folderOver, setFolderOver] = useState(false)
   const newSession = useStore((s) => s.newSession)
   const closeSession = useStore((s) => s.closeSession)
   const closeProject = useStore((s) => s.closeProject)
@@ -12,6 +16,8 @@ export function Rail(): React.JSX.Element {
   const recolor = useStore((s) => s.recolor)
   const collapse = useStore((s) => s.collapse)
   const focusSession = useStore((s) => s.focusSession)
+  const reorderProject = useStore((s) => s.reorderProject)
+  const reorderSession = useStore((s) => s.reorderSession)
 
   const handleCloseProject = (projectId: string): void => {
     const project = workspace.projects.find((p) => p.id === projectId)
@@ -26,8 +32,35 @@ export function Rail(): React.JSX.Element {
     closeProject(projectId)
   }
 
+  // A folder dragged from Finder (external files), not an internal row reorder.
+  const isFolderDrag = (e: React.DragEvent): boolean =>
+    getDrag() === null && Array.from(e.dataTransfer.types).includes('Files')
+
+  const onDrop = (e: React.DragEvent): void => {
+    if (!isFolderDrag(e)) return
+    e.preventDefault()
+    setFolderOver(false)
+    for (const file of Array.from(e.dataTransfer.files)) {
+      const path = window.bunyan.app.pathForFile(file)
+      if (path) void addProjectFromPath(path)
+    }
+  }
+
   return (
-    <aside className="flex h-full flex-col border-l border-line bg-canvas">
+    <aside
+      className={[
+        'flex h-full flex-col border-l border-line bg-canvas',
+        folderOver ? 'ring-2 ring-inset ring-gold' : '',
+      ].join(' ')}
+      onDragOver={(e) => {
+        if (isFolderDrag(e)) {
+          e.preventDefault()
+          setFolderOver(true)
+        }
+      }}
+      onDragLeave={() => setFolderOver(false)}
+      onDrop={onDrop}
+    >
       <header className="drag-region flex h-9 shrink-0 items-center justify-between px-3">
         <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-dim">
           Projects
@@ -47,10 +80,11 @@ export function Rail(): React.JSX.Element {
             No projects yet. Add a folder to start.
           </p>
         ) : (
-          workspace.projects.map((project) => (
+          workspace.projects.map((project, index) => (
             <ProjectRow
               key={project.id}
               project={project}
+              index={index}
               sessions={projectSessions(workspace, project.id)}
               status={projectStatus(workspace, project.id)}
               activeSessionId={workspace.activeSessionId}
@@ -62,6 +96,10 @@ export function Rail(): React.JSX.Element {
               onClose={() => handleCloseProject(project.id)}
               onFocusSession={(id) => focusSession(id)}
               onCloseSession={(id) => closeSession(id)}
+              onReorderProject={reorderProject}
+              onReorderSession={(sessionId, toIndex) =>
+                reorderSession(project.id, sessionId, toIndex)
+              }
             />
           ))
         )}

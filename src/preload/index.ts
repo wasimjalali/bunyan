@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, type IpcRendererEvent } from 'electron'
+import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
 import { IPC } from '@shared/ipc'
 import type {
   BunyanApi,
@@ -43,6 +43,8 @@ const api: BunyanApi = {
   },
   project: {
     openDialog: (): Promise<OpenedProject | null> => ipcRenderer.invoke(IPC.projectOpenDialog),
+    fromPath: (path: string): Promise<OpenedProject | null> =>
+      ipcRenderer.invoke(IPC.projectFromPath, { path }),
     gitBranch: (req: GitBranchRequest): Promise<GitBranchResult | null> =>
       ipcRenderer.invoke(IPC.projectGitBranch, req),
   },
@@ -54,6 +56,7 @@ const api: BunyanApi = {
     setActiveSession: (sessionId: string | null): void =>
       ipcRenderer.send(IPC.appActiveSession, sessionId),
     setNotifyPrefs: (prefs: NotifyPrefs): void => ipcRenderer.send(IPC.appNotifyPrefs, prefs),
+    pathForFile: (file: File): string => webUtils.getPathForFile(file),
     onFocusRequest: (cb: (e: FocusRequestEvent) => void): Unsubscribe =>
       subscribe(IPC.appFocusRequest, cb),
   },

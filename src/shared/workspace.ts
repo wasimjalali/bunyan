@@ -215,6 +215,42 @@ export function sessionByIndex(ws: Workspace, oneBased: number): string | null {
   return orderedSessionIds(ws)[oneBased - 1] ?? null
 }
 
+/** Move the item at `from` to `to` in a copy of the array. Indices are clamped. */
+export function moveInArray<T>(items: T[], from: number, to: number): T[] {
+  if (from < 0 || from >= items.length) return items
+  const next = items.slice()
+  const [moved] = next.splice(from, 1)
+  if (moved === undefined) return items
+  const target = Math.min(Math.max(to, 0), next.length)
+  next.splice(target, 0, moved)
+  return next
+}
+
+/** Reorder a project to a new index in the rail. */
+export function reorderProject(ws: Workspace, projectId: string, toIndex: number): Workspace {
+  const from = ws.projects.findIndex((p) => p.id === projectId)
+  if (from === -1) return ws
+  return { ...ws, projects: moveInArray(ws.projects, from, toIndex) }
+}
+
+/** Reorder a session within its project's session list. */
+export function reorderSession(
+  ws: Workspace,
+  projectId: string,
+  sessionId: string,
+  toIndex: number,
+): Workspace {
+  return {
+    ...ws,
+    projects: ws.projects.map((p) => {
+      if (p.id !== projectId) return p
+      const from = p.sessionIds.indexOf(sessionId)
+      if (from === -1) return p
+      return { ...p, sessionIds: moveInArray(p.sessionIds, from, toIndex) }
+    }),
+  }
+}
+
 /** The project that should receive a new session: the active session's, else the first. */
 export function activeOrFirstProjectId(ws: Workspace): string | null {
   const active = ws.sessions.find((s) => s.id === ws.activeSessionId)

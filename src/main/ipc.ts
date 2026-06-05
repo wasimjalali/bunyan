@@ -5,7 +5,7 @@ import type { SessionStatus, Workspace } from '@shared/types'
 import type { PtyManager } from './pty/PtyManager'
 import type { WorkspaceStore } from './store/WorkspaceStore'
 import type { SessionMonitor } from './monitor/SessionMonitor'
-import { openProjectDialog, readGitBranch } from './project'
+import { openProjectDialog, readGitBranch, resolveProjectPath } from './project'
 import {
   validateCreate,
   validateWrite,
@@ -66,6 +66,10 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
 /** Folder picker and git-branch readout. */
 export function registerProjectIpc(win: BrowserWindow): void {
   ipcMain.handle(IPC.projectOpenDialog, () => openProjectDialog(win))
+  ipcMain.handle(IPC.projectFromPath, (_e, raw) => {
+    const req = guard(() => validateGitBranch(raw))
+    return resolveProjectPath(req.path)
+  })
   ipcMain.handle(IPC.projectGitBranch, (_e, raw) => {
     const req = guard(() => validateGitBranch(raw))
     return readGitBranch(req.path)

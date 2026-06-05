@@ -64,6 +64,8 @@ export interface Workspace {
   activeSessionId: string | null
   windowBounds?: WindowBounds
   settings: Settings
+  /** Last captured scrollback per pane (keyed by pane id), for restore. Capped. */
+  scrollback?: Record<string, string>
 }
 
 // Brand-safe project colours (no sage). Assigned round-robin on add, editable.

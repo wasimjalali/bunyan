@@ -1,5 +1,6 @@
 import { dialog, type BrowserWindow } from 'electron'
 import { execFile } from 'node:child_process'
+import { statSync } from 'node:fs'
 import path from 'node:path'
 import type { OpenedProject, GitBranchResult } from '@shared/ipc'
 
@@ -13,6 +14,17 @@ export async function openProjectDialog(parent: BrowserWindow): Promise<OpenedPr
   if (result.canceled || result.filePaths.length === 0) return null
   const dir = result.filePaths[0]!
   return { path: dir, name: path.basename(dir) }
+}
+
+/** Resolve a dropped path to a project. Returns null unless it is a directory. */
+export function resolveProjectPath(target: string): OpenedProject | null {
+  try {
+    if (!statSync(target).isDirectory()) return null
+    return { path: target, name: path.basename(target) }
+  } catch {
+    // Path does not exist or is not readable: not a project.
+    return null
+  }
 }
 
 /**

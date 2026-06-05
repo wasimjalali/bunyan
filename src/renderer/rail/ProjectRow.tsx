@@ -2,9 +2,11 @@ import { useState } from 'react'
 import { PROJECT_COLORS, type Project, type Session, type SessionStatus } from '@shared/types'
 import { StatusDot } from './StatusDot'
 import { SessionRow } from './SessionRow'
+import { setDrag, getDrag, clearDrag } from './dnd'
 
 interface ProjectRowProps {
   project: Project
+  index: number
   sessions: Session[]
   status: SessionStatus | null
   activeSessionId: string | null
@@ -16,6 +18,8 @@ interface ProjectRowProps {
   onClose: () => void
   onFocusSession: (id: string) => void
   onCloseSession: (id: string) => void
+  onReorderProject: (draggedId: string, toIndex: number) => void
+  onReorderSession: (sessionId: string, toIndex: number) => void
 }
 
 export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
@@ -23,6 +27,7 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
+  const [dropTarget, setDropTarget] = useState(false)
 
   const commitRename = (): void => {
     const trimmed = draftName.trim()
@@ -30,9 +35,41 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
     setRenaming(false)
   }
 
+  const acceptsProjectDrop = (): boolean => {
+    const d = getDrag()
+    return d?.kind === 'project' && d.projectId !== project.id
+  }
+
   return (
     <div className="group/project select-none">
-      <div className="flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface/40">
+      <div
+        draggable={!renaming}
+        onDragStart={(e) => {
+          // Don't start a project drag from inside the rename input.
+          if (renaming) {
+            e.preventDefault()
+            return
+          }
+          setDrag({ kind: 'project', projectId: project.id })
+        }}
+        onDragEnd={clearDrag}
+        onDragOver={(e) => {
+          if (acceptsProjectDrop()) {
+            e.preventDefault()
+            setDropTarget(true)
+          }
+        }}
+        onDragLeave={() => setDropTarget(false)}
+        onDrop={() => {
+          setDropTarget(false)
+          const d = getDrag()
+          if (d?.kind === 'project') props.onReorderProject(d.projectId, props.index)
+        }}
+        className={[
+          'flex items-center gap-2 rounded-md px-2 py-1.5 hover:bg-surface/40',
+          dropTarget ? 'ring-1 ring-gold' : '',
+        ].join(' ')}
+      >
         <button
           onClick={props.onToggleCollapse}
           className="flex h-4 w-4 shrink-0 items-center justify-center text-ink-dim hover:text-ink"
@@ -117,13 +154,16 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           {sessions.length === 0 ? (
             <div className="py-2 pl-6 text-xs text-ink-dim">No sessions yet</div>
           ) : (
-            sessions.map((s) => (
+            sessions.map((s, i) => (
               <SessionRow
                 key={s.id}
                 session={s}
+                projectId={project.id}
+                index={i}
                 active={s.id === activeSessionId}
                 onFocus={() => props.onFocusSession(s.id)}
                 onClose={() => props.onCloseSession(s.id)}
+                onReorder={props.onReorderSession}
               />
             ))
           )}

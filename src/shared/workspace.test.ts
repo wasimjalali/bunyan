@@ -19,6 +19,9 @@ import {
   sessionByOffset,
   sessionByIndex,
   activeOrFirstProjectId,
+  moveInArray,
+  reorderProject,
+  reorderSession,
 } from './workspace'
 import { PROJECT_COLORS } from './types'
 
@@ -135,6 +138,32 @@ describe('workspace', () => {
     const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
     ws = addSession(ws, s1)
     expect(activeOrFirstProjectId(ws)).toBe(p.id)
+  })
+
+  it('moves an item within an array, clamping the target', () => {
+    expect(moveInArray(['a', 'b', 'c'], 0, 2)).toEqual(['b', 'c', 'a'])
+    expect(moveInArray(['a', 'b', 'c'], 2, 0)).toEqual(['c', 'a', 'b'])
+    expect(moveInArray(['a', 'b', 'c'], 0, 99)).toEqual(['b', 'c', 'a'])
+    expect(moveInArray(['a', 'b', 'c'], 5, 0)).toEqual(['a', 'b', 'c']) // out of range: unchanged
+  })
+
+  it('reorders projects', () => {
+    let ws = createDefaultWorkspace()
+    const a = createProject('/a', 'a', PROJECT_COLORS[0]!)
+    const b = createProject('/b', 'b', PROJECT_COLORS[1]!)
+    ws = addProject(addProject(ws, a), b)
+    ws = reorderProject(ws, a.id, 1)
+    expect(ws.projects.map((p) => p.id)).toEqual([b.id, a.id])
+  })
+
+  it('reorders sessions within their project', () => {
+    const { p } = seed()
+    let ws = addProject(createDefaultWorkspace(), p)
+    const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
+    const s2 = createSession(p.id, 'shell', p.path, 'shell 2', 'pty_2')
+    ws = addSession(addSession(ws, s1), s2)
+    ws = reorderSession(ws, p.id, s1.id, 1)
+    expect(ws.projects[0]!.sessionIds).toEqual([s2.id, s1.id])
   })
 
   it('lists project sessions in rail order', () => {

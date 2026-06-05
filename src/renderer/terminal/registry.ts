@@ -22,6 +22,10 @@ export function getPaneHandles(paneId: string): PaneHandles | undefined {
   return panes.get(paneId)
 }
 
+export function allPaneHandles(): ReadonlyMap<string, PaneHandles> {
+  return panes
+}
+
 export function focusPaneTerminal(paneId: string): void {
   panes.get(paneId)?.term.focus()
 }

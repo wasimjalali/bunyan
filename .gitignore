@@ -19,3 +19,7 @@ npm-debug.log*
 
 # Brainstorm scaffolding from the spec phase
 .superpowers/
+
+# Playwright
+/test-results/
+/playwright-report/
