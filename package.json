@@ -17,7 +17,45 @@
     "format": "prettier --write .",
     "test": "vitest run",
     "test:watch": "vitest",
+    "icons": "bash scripts/make-icons.sh",
     "pack": "electron-vite build && electron-builder --mac --universal"
+  },
+  "build": {
+    "appId": "com.wasimjalali.bunyan",
+    "productName": "Bunyan",
+    "copyright": "Copyright © 2026 Wasim Jalali",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asarUnpack": [
+      "**/node_modules/node-pty/**"
+    ],
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "icon": "build/icon/icon.icns",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": "universal"
+        },
+        {
+          "target": "zip",
+          "arch": "universal"
+        }
+      ]
+    },
+    "dmg": {
+      "title": "Bunyan ${version}"
+    }
   },
   "dependencies": {
     "electron-store": "^8.2.0",

@@ -1,0 +1,44 @@
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!--
+    Bunyan app icon: a pointed arch (classic Islamic architecture) as two nested
+    gold strokes with a gold light at its centre, on a deep-navy rounded tile.
+    The macOS .icns set (16-1024 px) is generated from this source SVG.
+  -->
+  <defs>
+    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#16304D" />
+      <stop offset="1" stop-color="#0C1929" />
+    </linearGradient>
+    <linearGradient id="gold" x1="512" y1="150" x2="512" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#E0C687" />
+      <stop offset="1" stop-color="#C4932E" />
+    </linearGradient>
+    <radialGradient id="light" cx="512" cy="560" r="120" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FBEFCF" />
+      <stop offset="1" stop-color="#D4A853" />
+    </radialGradient>
+  </defs>
+
+  <rect x="96" y="96" width="832" height="832" rx="200" fill="url(#tile)" stroke="#20344F" strokeWidth="6" />
+
+  <!-- Outer pointed arch -->
+  <path
+    d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
+    stroke="url(#gold)"
+    stroke-width="44"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- Inner pointed arch -->
+  <path
+    d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
+    stroke="#C4932E"
+    stroke-width="34"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+    fill="none"
+  />
+  <!-- Central light -->
+  <circle cx="512" cy="560" r="52" fill="url(#light)" />
+</svg>

@@ -23,11 +23,14 @@ export function SettingsPanel(): React.JSX.Element | null {
 
   return (
     <div
-      className="fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[10vh]"
+      className="overlay-backdrop fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[10vh]"
       onMouseDown={() => setSettingsOpen(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Settings"
     >
       <div
-        className="w-[440px] max-w-[92vw] rounded-xl border border-line bg-surface shadow-2xl"
+        className="overlay-panel w-[440px] max-w-[92vw] rounded-xl border border-line bg-surface shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <header className="flex items-center justify-between border-b border-line px-4 py-3">

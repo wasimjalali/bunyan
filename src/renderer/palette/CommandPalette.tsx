@@ -86,11 +86,14 @@ export function CommandPalette(): React.JSX.Element | null {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]"
+      className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]"
       onMouseDown={() => setPalette(false)}
+      role="dialog"
+      aria-modal="true"
+      aria-label="Command palette"
     >
       <div
-        className="w-[560px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl"
+        className="overlay-panel w-[560px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl"
         onMouseDown={(e) => e.stopPropagation()}
       >
         <input
