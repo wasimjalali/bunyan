@@ -155,6 +155,17 @@ export function setSessionStatus(
   }
 }
 
+export function setSessionLayout(
+  ws: Workspace,
+  sessionId: string,
+  layout: Session['layout'],
+): Workspace {
+  return {
+    ...ws,
+    sessions: ws.sessions.map((s) => (s.id === sessionId ? { ...s, layout } : s)),
+  }
+}
+
 const STATUS_URGENCY: Record<SessionStatus, number> = {
   'needs-input': 3,
   working: 2,

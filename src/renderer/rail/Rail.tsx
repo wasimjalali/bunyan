@@ -27,15 +27,15 @@ export function Rail(): React.JSX.Element {
   }
 
   return (
-    <aside className="flex h-full flex-col border-l border-navy-line bg-deep-navy">
+    <aside className="flex h-full flex-col border-l border-line bg-canvas">
       <header className="drag-region flex h-9 shrink-0 items-center justify-between px-3">
-        <span className="text-[11px] font-semibold uppercase tracking-widest text-muted">
+        <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-dim">
           Projects
         </span>
         <button
           onClick={() => void openProject()}
           title="Add a project"
-          className="no-drag flex h-5 w-5 items-center justify-center rounded text-muted hover:bg-navy-surface hover:text-cream-surface"
+          className="no-drag flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
         >
           +
         </button>
@@ -43,7 +43,7 @@ export function Rail(): React.JSX.Element {
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
         {workspace.projects.length === 0 ? (
-          <p className="px-2 pt-2 text-xs leading-relaxed text-muted">
+          <p className="px-2 pt-2 text-xs leading-relaxed text-ink-dim">
             No projects yet. Add a folder to start.
           </p>
         ) : (

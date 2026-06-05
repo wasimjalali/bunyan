@@ -1,23 +1,46 @@
 @import 'tailwindcss';
 
-/* Bunyan brand tokens (spec section 5). Sage is removed everywhere. */
+/*
+ * Bunyan brand tokens (spec section 5). Sage is removed everywhere.
+ *
+ * Two token families:
+ *  - Brand tokens (gold, deep-navy, cream, ...) are fixed hues used where the
+ *    colour is the brand (the gold accent, dark text on a gold button).
+ *  - Semantic tokens (canvas, surface, line, ink, ink-dim) describe a *role*
+ *    and flip between dark and light. Components use these for surfaces and
+ *    text so theme switching is a single variable swap.
+ */
 @theme {
+  /* Brand (fixed) */
   --color-navy: #1e3a5f;
   --color-deep-navy: #0c1929;
-  --color-navy-surface: #16304d;
-  --color-navy-line: #20344f;
   --color-cream: #faf7f2;
-  --color-cream-surface: #fefdfb;
   --color-gold: #d4a853;
   --color-gold-deep: #c4932e;
   --color-gold-soft: #e0c687;
   --color-charcoal: #2d3748;
-  --color-muted: #6e8aae;
-  --color-idle: #33486a;
   --color-error: #ed6a5e;
+
+  /* Semantic (dark theme defaults) */
+  --color-canvas: #0c1929;
+  --color-surface: #16304d;
+  --color-line: #20344f;
+  --color-ink: #fefdfb;
+  --color-ink-dim: #6e8aae;
+  --color-idle: #33486a;
 
   --font-wordmark: Georgia, 'Times New Roman', serif;
   --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+/* Light theme: swap the semantic roles. Brand tokens stay fixed. */
+[data-theme='light'] {
+  --color-canvas: #faf7f2;
+  --color-surface: #f0ebe1;
+  --color-line: #e3dacb;
+  --color-ink: #2d3748;
+  --color-ink-dim: #5b6b82;
+  --color-idle: #9aa8bd;
 }
 
 html,
@@ -29,8 +52,8 @@ body,
 
 body {
   font-family: var(--font-ui);
-  background-color: var(--color-deep-navy);
-  color: var(--color-cream-surface);
+  background-color: var(--color-canvas);
+  color: var(--color-ink);
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
 }

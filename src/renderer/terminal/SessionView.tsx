@@ -1,5 +1,7 @@
+import { useEffect, useRef } from 'react'
 import type { ITheme } from '@xterm/xterm'
 import type { CursorStyle, PaneNode, Session } from '@shared/types'
+import { listPanes } from '@shared/pane-tree'
 import { TerminalPane } from './TerminalPane'
 
 interface SessionViewProps {
@@ -11,11 +13,13 @@ interface SessionViewProps {
   fontSize: number
   cursorStyle: CursorStyle
   onFocusPane: (paneId: string) => void
+  onSetRatio: (anchorPaneId: string, ratio: number) => void
 }
 
 /**
  * Renders a session's pane tree. Leaves are terminals; splits are flex
- * containers sized by the split ratio. The focused pane gets a gold top border.
+ * containers sized by the split ratio, with a draggable divider. The focused
+ * pane gets a gold top border.
  */
 export function SessionView(props: SessionViewProps): React.JSX.Element {
   return <div className="h-full w-full">{renderNode(props.session.layout, props)}</div>
@@ -26,10 +30,9 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
     const focused = props.focusedPaneId === null || props.focusedPaneId === node.pane.id
     return (
       <div
-        className={[
-          'h-full w-full border-t-2',
-          focused ? 'border-gold/70' : 'border-transparent',
-        ].join(' ')}
+        className={['h-full w-full border-t-2', focused ? 'border-gold/70' : 'border-transparent'].join(
+          ' ',
+        )}
       >
         <TerminalPane
           pane={node.pane}
@@ -46,19 +49,61 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
       </div>
     )
   }
+  return <Split node={node} props={props} />
+}
 
+function Split({ node, props }: { node: Extract<PaneNode, { type: 'split' }>; props: SessionViewProps }) {
+  const containerRef = useRef<HTMLDivElement>(null)
+  // Holds the teardown for an in-flight drag, so unmounting mid-drag can't leak
+  // window listeners or leave the resize cursor stuck.
+  const stopDrag = useRef<(() => void) | null>(null)
   const isRow = node.dir === 'row'
-  const aPct = `${node.ratio * 100}%`
-  const bPct = `${(1 - node.ratio) * 100}%`
+  const anchorPaneId = listPanes(node.a)[0]?.id ?? ''
+
+  useEffect(() => () => stopDrag.current?.(), [])
+
+  const startDrag = (e: React.MouseEvent): void => {
+    if (!anchorPaneId) return
+    e.preventDefault()
+    const onMove = (ev: MouseEvent): void => {
+      if (!containerRef.current) return
+      const rect = containerRef.current.getBoundingClientRect()
+      props.onSetRatio(anchorPaneId, ratioFromPointer(ev, rect, isRow))
+    }
+    const stop = (): void => {
+      document.body.style.cursor = ''
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', stop)
+      stopDrag.current = null
+    }
+    stopDrag.current = stop
+    document.body.style.cursor = isRow ? 'col-resize' : 'row-resize'
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', stop)
+  }
+
   return (
-    <div className={['flex h-full w-full', isRow ? 'flex-row' : 'flex-col'].join(' ')}>
-      <div style={{ flexBasis: aPct }} className="min-h-0 min-w-0">
+    <div
+      ref={containerRef}
+      className={['flex h-full w-full', isRow ? 'flex-row' : 'flex-col'].join(' ')}
+    >
+      <div style={{ flexBasis: `${node.ratio * 100}%` }} className="min-h-0 min-w-0">
         {renderNode(node.a, props)}
       </div>
-      <div className={isRow ? 'w-px bg-navy-line' : 'h-px bg-navy-line'} />
-      <div style={{ flexBasis: bPct }} className="min-h-0 min-w-0">
+      <div
+        onMouseDown={startDrag}
+        className={[
+          'shrink-0 bg-line transition-colors hover:bg-gold/40',
+          isRow ? 'w-1 cursor-col-resize' : 'h-1 cursor-row-resize',
+        ].join(' ')}
+      />
+      <div style={{ flexBasis: `${(1 - node.ratio) * 100}%` }} className="min-h-0 min-w-0">
         {renderNode(node.b, props)}
       </div>
     </div>
   )
+}
+
+function ratioFromPointer(ev: MouseEvent, rect: DOMRect, isRow: boolean): number {
+  return isRow ? (ev.clientX - rect.left) / rect.width : (ev.clientY - rect.top) / rect.height
 }

@@ -14,7 +14,7 @@ export function SessionRow({ session, active, onFocus, onClose }: SessionRowProp
       onClick={onFocus}
       className={[
         'group/session relative flex cursor-pointer items-center gap-2 rounded-md py-1 pl-6 pr-2 text-sm',
-        active ? 'bg-navy-surface text-cream-surface' : 'text-muted hover:bg-navy-surface/40',
+        active ? 'bg-surface text-ink' : 'text-ink-dim hover:bg-surface/40',
       ].join(' ')}
     >
       {active && (
@@ -33,7 +33,7 @@ export function SessionRow({ session, active, onFocus, onClose }: SessionRowProp
           onClose()
         }}
         title="Close session"
-        className="hidden h-4 w-4 items-center justify-center rounded text-muted hover:text-cream-surface group-hover/session:flex"
+        className="hidden h-4 w-4 items-center justify-center rounded text-ink-dim hover:text-ink group-hover/session:flex"
       >
         ×
       </button>

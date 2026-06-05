@@ -1,7 +1,14 @@
 import { create } from 'zustand'
-import type { PaneNode, SessionKind, Settings, Workspace } from '@shared/types'
+import type { PaneNode, SessionKind, Settings, SplitDir, Workspace } from '@shared/types'
 import { makeId } from '@shared/id'
-import { listPanes } from '@shared/pane-tree'
+import {
+  listPanes,
+  newPane,
+  splitPane,
+  closePane as closePaneInTree,
+  setRatio as setRatioInTree,
+  nextFocusAfterClose,
+} from '@shared/pane-tree'
 import {
   createDefaultWorkspace,
   createProject,
@@ -18,6 +25,7 @@ import {
   toggleCollapse,
   setActiveSession,
   setSessionStatus,
+  setSessionLayout,
 } from '@shared/workspace'
 
 interface BunyanState {
@@ -38,6 +46,9 @@ interface BunyanState {
   collapse(projectId: string): void
   focusSession(sessionId: string | null): void
   focusPane(paneId: string): void
+  splitActivePane(dir: SplitDir): void
+  closePane(paneId: string): void
+  setSplitRatio(anchorPaneId: string, ratio: number): void
   applyStatus(sessionId: string, status: Workspace['sessions'][number]['status']): void
   updateSettings(patch: Partial<Settings>): void
 }
@@ -146,6 +157,45 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   focusPane(paneId) {
     set({ focusedPaneId: paneId })
+  },
+
+  splitActivePane(dir) {
+    const { workspace, focusedPaneId } = get()
+    const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
+    if (!session || !focusedPaneId) return
+    const pane = newPane(makeId('pty'))
+    const layout = splitPane(session.layout, focusedPaneId, dir, pane)
+    set({
+      workspace: setSessionLayout(workspace, session.id, layout),
+      focusedPaneId: pane.id,
+    })
+  },
+
+  closePane(paneId) {
+    const { workspace } = get()
+    const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
+    if (!session) return
+    const pane = listPanes(session.layout).find((p) => p.id === paneId)
+    if (pane) void window.bunyan.session.kill({ paneId: pane.ptyId })
+    const layout = closePaneInTree(session.layout, paneId)
+    if (layout === null) {
+      // Last pane closed: the session goes with it.
+      const next = removeSession(workspace, session.id)
+      set({ workspace: next, focusedPaneId: firstPaneId(next, next.activeSessionId) })
+      return
+    }
+    set({
+      workspace: setSessionLayout(workspace, session.id, layout),
+      focusedPaneId: nextFocusAfterClose(session.layout, paneId),
+    })
+  },
+
+  setSplitRatio(anchorPaneId, ratio) {
+    const { workspace } = get()
+    const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
+    if (!session) return
+    const layout = setRatioInTree(session.layout, anchorPaneId, ratio)
+    set({ workspace: setSessionLayout(workspace, session.id, layout) })
   },
 
   applyStatus(sessionId, status) {
