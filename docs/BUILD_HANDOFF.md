@@ -1,5 +1,10 @@
 # Bunyan v1, build handoff
 
+> **Status: built.** This handoff has been executed. All six phases and the
+> section-17 gaps are implemented, reviewed (CodeRabbit clean) and merged. See
+> `docs/plans/` for the plan and `README.md` for how to run it. Kept here as a
+> record of the original brief.
+
 Paste this as the first message in a fresh Claude Code session opened in `~/Desktop/Bunyan`.
 
 ---

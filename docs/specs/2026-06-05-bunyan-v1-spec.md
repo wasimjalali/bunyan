@@ -3,7 +3,7 @@
 - **Product:** Bunyan, a premium macOS terminal for managing projects and Claude Code sessions
 - **Date:** 2026-06-05
 - **Author:** Wasim Jalali
-- **Status:** Approved for planning
+- **Status:** Approved, implemented in v1 (all six build phases plus the section-17 gaps; see `docs/plans/`)
 - **Platform (v1):** macOS (Apple Silicon + Intel)
 - **License (intended):** MIT, open source
 
