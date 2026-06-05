@@ -276,7 +276,11 @@ async function addOpenedProject(
 ): Promise<void> {
   const ws = get().workspace
   if (ws.projects.some((p) => p.path === opened.path)) return
-  const project = createProject(opened.path, opened.name, nextProjectColor(ws.projects.length))
+  const project = createProject(
+    opened.path,
+    opened.name,
+    nextProjectColor(ws.projects.map((p) => p.color)),
+  )
   set((s) => ({ workspace: addProject(s.workspace, project) }))
   const branch = await window.bunyan.project.gitBranch({ path: opened.path })
   if (branch) {

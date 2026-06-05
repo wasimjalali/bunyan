@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useStore } from '../state/store'
-import { projectSessions, projectStatus } from '@shared/workspace'
+import { activeProjectId, projectSessions, projectStatus } from '@shared/workspace'
 import { ProjectRow } from './ProjectRow'
 
 export function Rail(): React.JSX.Element {
@@ -31,6 +31,16 @@ export function Rail(): React.JSX.Element {
     closeProject(projectId)
   }
 
+  // Clicking a project jumps straight to its first session (usually the Claude
+  // one), so you don't have to expand and pick. No-op for an empty project.
+  const handleOpenProject = (projectId: string): void => {
+    const first = projectSessions(workspace, projectId)[0]
+    if (first) focusSession(first.id)
+  }
+
+  // The project owning the active session, so its row reads as current.
+  const currentProjectId = activeProjectId(workspace)
+
   // A folder dragged from Finder carries the 'Files' type; internal row
   // reorders do not, so this alone distinguishes them. Row drop handlers also
   // stopPropagation, so a reorder never reaches here.
@@ -49,7 +59,7 @@ export function Rail(): React.JSX.Element {
   return (
     <aside
       className={[
-        'flex h-full flex-col border-l border-line bg-canvas',
+        'rail-depth flex h-full flex-col border-l border-line bg-canvas',
         folderOver ? 'ring-2 ring-inset ring-gold' : '',
       ].join(' ')}
       onDragOver={(e) => {
@@ -90,8 +100,10 @@ export function Rail(): React.JSX.Element {
               index={index}
               sessions={projectSessions(workspace, project.id)}
               status={projectStatus(workspace, project.id)}
+              active={project.id === currentProjectId}
               activeSessionId={workspace.activeSessionId}
               onToggleCollapse={() => collapse(project.id)}
+              onOpenProject={() => handleOpenProject(project.id)}
               onNewClaude={() => newSession(project.id, 'claude')}
               onNewShell={() => newSession(project.id, 'shell')}
               onRename={(name) => rename(project.id, name)}

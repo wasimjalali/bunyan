@@ -18,6 +18,7 @@ import {
   needsInputCount,
   sessionByOffset,
   sessionByIndex,
+  activeProjectId,
   activeOrFirstProjectId,
   moveInArray,
   reorderProject,
@@ -41,10 +42,15 @@ describe('workspace', () => {
     expect(ws.settings.theme).toBe('dark')
   })
 
-  it('cycles project colours round-robin', () => {
-    expect(nextProjectColor(0)).toBe(PROJECT_COLORS[0])
-    expect(nextProjectColor(PROJECT_COLORS.length)).toBe(PROJECT_COLORS[0])
-    expect(nextProjectColor(1)).toBe(PROJECT_COLORS[1])
+  it('picks the first unused brand colour, then cycles when all are taken', () => {
+    // No projects yet: the first brand colour.
+    expect(nextProjectColor([])).toBe(PROJECT_COLORS[0])
+    // First colour taken: skip to the next free one, not a duplicate.
+    expect(nextProjectColor([PROJECT_COLORS[0]])).toBe(PROJECT_COLORS[1])
+    // A gap in the middle is filled before later colours.
+    expect(nextProjectColor([PROJECT_COLORS[0], PROJECT_COLORS[2]])).toBe(PROJECT_COLORS[1])
+    // Every colour used: fall back to round-robin by count.
+    expect(nextProjectColor([...PROJECT_COLORS])).toBe(PROJECT_COLORS[0])
   })
 
   it('adds a session, links it to its project, and makes it active', () => {
@@ -138,6 +144,15 @@ describe('workspace', () => {
     const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
     ws = addSession(ws, s1)
     expect(activeOrFirstProjectId(ws)).toBe(p.id)
+  })
+
+  it('resolves the active project, or null when nothing is active', () => {
+    const { p } = seed()
+    let ws = addProject(createDefaultWorkspace(), p)
+    expect(activeProjectId(ws)).toBeNull() // no active session -> null, not the first
+    const s1 = createSession(p.id, 'shell', p.path, 'shell', 'pty_1')
+    ws = setActiveSession(addSession(ws, s1), s1.id)
+    expect(activeProjectId(ws)).toBe(p.id)
   })
 
   it('moves an item within an array, clamping the target', () => {

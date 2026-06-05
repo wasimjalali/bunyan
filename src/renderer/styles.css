@@ -33,6 +33,18 @@
   --font-ui: Inter, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
 }
 
+/*
+ * Motion and depth tokens. One calm decelerating curve for structure, one for
+ * quick hover/press, a short duration and a soft shadow. Components reference
+ * these so the language stays one edit.
+ */
+:root {
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --dur-fast: 120ms;
+  --shadow-1: 0 1px 2px rgba(0, 0, 0, 0.22);
+}
+
 /* Light theme: swap the semantic roles. Brand tokens stay fixed. */
 [data-theme='light'] {
   --color-canvas: #faf7f2;
@@ -54,7 +66,13 @@ body {
   font-family: var(--font-ui);
   background-color: var(--color-canvas);
   color: var(--color-ink);
+  /* Crisper UI text. -webkit-font-smoothing drives Chromium (our Electron
+     renderer); -moz-osx-font-smoothing is kept for Firefox/macOS parity.
+     text-rendering and font-feature-settings enable kerning and ligatures. */
   -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+  font-feature-settings: 'kern' 1, 'liga' 1;
   overflow: hidden;
 }
 
@@ -70,6 +88,45 @@ body {
 :focus-visible {
   outline: 2px solid var(--color-gold);
   outline-offset: 2px;
+}
+
+/*
+ * Depth and polish helpers (still-frame premium, brand palette only).
+ * - rail-depth: a barely-there vertical wash plus a left inner highlight so the
+ *   rail reads as a raised surface, not a flat block.
+ * - title-hairline: a thin gold-tinted accent under the title bar.
+ * - chip-raise: an inner highlight + soft shadow on the project initial chip.
+ */
+.rail-depth {
+  background-image: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--color-surface) 22%, transparent),
+    transparent 240px
+  );
+  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
+}
+.title-hairline {
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-gold) 28%, transparent);
+}
+.chip-raise {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    var(--shadow-1);
+  transition:
+    transform var(--dur-fast) var(--ease-out),
+    box-shadow var(--dur-fast) var(--ease-out);
+}
+.row-smooth {
+  transition:
+    background-color var(--dur-fast) var(--ease-soft),
+    color var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .chip-raise,
+  .row-smooth {
+    transition: none;
+  }
 }
 
 /* Calm motion: a quick fade for backdrops, a gentle pop for panels. No looping,

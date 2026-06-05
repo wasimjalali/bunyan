@@ -223,7 +223,7 @@ function TitleBar({
   onToggleTheme: () => void
 }): React.JSX.Element {
   return (
-    <header className="drag-region flex h-9 shrink-0 items-center border-b border-line pl-20 pr-3">
+    <header className="title-hairline drag-region flex h-9 shrink-0 items-center border-b border-line pl-20 pr-3">
       <div className="flex items-center gap-2">
         <BunyanMark size={16} />
         <span className="font-[family-name:var(--font-wordmark)] text-sm font-semibold">Bunyan</span>
