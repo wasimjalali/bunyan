@@ -1,44 +1,148 @@
 <svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Bunyan app icon: a pointed arch (classic Islamic architecture) as two nested
-    gold strokes with a gold light at its centre, on a deep-navy rounded tile.
-    The macOS .icns set (16-1024 px) is generated from this source SVG.
+    Bunyan app icon: a pointed arch (classic Islamic architecture) rendered as
+    polished 3D gold on a bevelled deep-navy tile. Each arch is a stack of
+    strokes (extrusion, base, core, specular) over a soft cast shadow, with a
+    glowing lamp at the centre. The macOS .icns set is generated from this SVG.
   -->
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="0" y2="1024" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#16304D" />
-      <stop offset="1" stop-color="#0C1929" />
+    <linearGradient id="tile" x1="0" y1="96" x2="0" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1D3F66" />
+      <stop offset="0.55" stop-color="#102A47" />
+      <stop offset="1" stop-color="#0A1624" />
     </linearGradient>
-    <linearGradient id="gold" x1="512" y1="150" x2="512" y2="850" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#E0C687" />
+    <linearGradient id="tileSheen" x1="0" y1="96" x2="0" y2="540" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.10" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="tileEdgeTop" x1="0" y1="96" x2="0" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.35" />
+      <stop offset="0.3" stop-color="#FFFFFF" stop-opacity="0.05" />
+      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
+    </linearGradient>
+    <linearGradient id="tileEdgeBottom" x1="0" y1="96" x2="0" y2="928" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#000000" stop-opacity="0" />
+      <stop offset="0.7" stop-color="#000000" stop-opacity="0" />
+      <stop offset="1" stop-color="#000000" stop-opacity="0.45" />
+    </linearGradient>
+
+    <linearGradient id="goldBase" x1="0" y1="150" x2="0" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F0D38C" />
+      <stop offset="0.5" stop-color="#D2A648" />
+      <stop offset="1" stop-color="#9C741F" />
+    </linearGradient>
+    <linearGradient id="goldCore" x1="0" y1="150" x2="0" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFEDB8" />
       <stop offset="1" stop-color="#C4932E" />
     </linearGradient>
-    <radialGradient id="light" cx="512" cy="560" r="120" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FBEFCF" />
-      <stop offset="1" stop-color="#D4A853" />
+    <linearGradient id="goldBaseInner" x1="0" y1="150" x2="0" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#D9B362" />
+      <stop offset="1" stop-color="#85601A" />
+    </linearGradient>
+    <linearGradient id="goldCoreInner" x1="0" y1="150" x2="0" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#F2D795" />
+      <stop offset="1" stop-color="#A87E22" />
+    </linearGradient>
+    <linearGradient id="goldSpec" x1="0" y1="150" x2="0" y2="850" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFBEA" stop-opacity="0.95" />
+      <stop offset="0.55" stop-color="#FFF3CF" stop-opacity="0.30" />
+      <stop offset="1" stop-color="#FFF3CF" stop-opacity="0" />
+    </linearGradient>
+
+    <radialGradient id="lightSphere" cx="0.38" cy="0.32" r="0.9">
+      <stop offset="0" stop-color="#FFFEF7" />
+      <stop offset="0.45" stop-color="#F6DD8C" />
+      <stop offset="1" stop-color="#B5871D" />
     </radialGradient>
+    <radialGradient id="lightGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#F4D77E" stop-opacity="0.55" />
+      <stop offset="1" stop-color="#F4D77E" stop-opacity="0" />
+    </radialGradient>
+    <radialGradient id="roomGlow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#E8C97E" stop-opacity="0.16" />
+      <stop offset="1" stop-color="#E8C97E" stop-opacity="0" />
+    </radialGradient>
+
+    <filter id="archShadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14" />
+    </filter>
   </defs>
 
-  <rect x="96" y="96" width="832" height="832" rx="200" fill="url(#tile)" stroke="#20344F" strokeWidth="6" />
+  <!-- Tile: gradient body, top sheen, bevelled edges -->
+  <rect x="96" y="96" width="832" height="832" rx="200" fill="url(#tile)" stroke="#20344F" stroke-width="6" />
+  <rect x="96" y="96" width="832" height="832" rx="200" fill="url(#tileSheen)" />
+  <rect x="102" y="102" width="820" height="820" rx="194" stroke="url(#tileEdgeTop)" stroke-width="4" />
+  <rect x="102" y="102" width="820" height="820" rx="194" stroke="url(#tileEdgeBottom)" stroke-width="5" />
 
-  <!-- Outer pointed arch -->
-  <path
-    d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
-    stroke="url(#gold)"
-    stroke-width="44"
+  <!-- Ambient lamp light washing over the tile behind the arch -->
+  <circle cx="512" cy="552" r="400" fill="url(#roomGlow)" />
+
+  <!-- Soft shadow the arches cast onto the tile -->
+  <g
+    transform="translate(0 20)"
+    filter="url(#archShadow)"
+    stroke="#000000"
+    stroke-opacity="0.4"
     stroke-linecap="round"
     stroke-linejoin="round"
-    fill="none"
-  />
-  <!-- Inner pointed arch -->
-  <path
-    d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
-    stroke="#C4932E"
-    stroke-width="34"
-    stroke-linecap="round"
-    stroke-linejoin="round"
-    fill="none"
-  />
-  <!-- Central light -->
-  <circle cx="512" cy="560" r="52" fill="url(#light)" />
+  >
+    <path d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800" stroke-width="46" />
+    <path d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800" stroke-width="36" />
+  </g>
+
+  <!-- Outer arch: extrusion lip, base metal, bright core, specular sweep -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
+      transform="translate(0 9)"
+      stroke="#6E4F12"
+      stroke-width="44"
+    />
+    <path
+      d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
+      stroke="url(#goldBase)"
+      stroke-width="44"
+    />
+    <path
+      d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
+      stroke="url(#goldCore)"
+      stroke-width="24"
+    />
+    <path
+      d="M268 800 V512 C268 336 380 212 512 180 C644 212 756 336 756 512 V800"
+      stroke="url(#goldSpec)"
+      stroke-width="9"
+    />
+  </g>
+
+  <!-- Inner arch: same stack, a step darker so it reads as recessed -->
+  <g stroke-linecap="round" stroke-linejoin="round">
+    <path
+      d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
+      transform="translate(0 7)"
+      stroke="#5C4210"
+      stroke-width="34"
+    />
+    <path
+      d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
+      stroke="url(#goldBaseInner)"
+      stroke-width="34"
+    />
+    <path
+      d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
+      stroke="url(#goldCoreInner)"
+      stroke-width="17"
+    />
+    <path
+      d="M388 800 V528 C388 432 436 356 512 326 C588 356 636 432 636 528 V800"
+      stroke="url(#goldSpec)"
+      stroke-width="7"
+      stroke-opacity="0.8"
+    />
+  </g>
+
+  <!-- Central light: halo, sphere, specular glint -->
+  <circle cx="512" cy="560" r="130" fill="url(#lightGlow)" />
+  <circle cx="512" cy="560" r="52" fill="url(#lightSphere)" />
+  <ellipse cx="494" cy="540" rx="17" ry="11" fill="#FFFFFF" fill-opacity="0.85" />
 </svg>
