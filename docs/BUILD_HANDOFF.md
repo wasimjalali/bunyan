@@ -41,7 +41,7 @@ A dark, premium Electron terminal whose right-hand rail lists every project and 
 - Per commit: run the commit-reviewer. Per phase: run simplify, then a CodeRabbit review.
 
 ## Git workflow
-- Repo: `https://github.com/wasimjalali2004-art/bunyan` (private), origin already set. Work locally in `~/Desktop/Bunyan`.
+- Repo: `https://github.com/wasimjalali/bunyan` (private), origin already set. Work locally in `~/Desktop/Bunyan`.
 - Develop on `main` locally, branch per phase (for example `feature/phase-1-skeleton`), push the branch, open a PR, review with CodeRabbit, merge when CI is green. Never push directly to `main`. Conventional commits. Never `--no-verify`, never force-push `main`.
 
 ## Optional: orchestrate with a workflow
