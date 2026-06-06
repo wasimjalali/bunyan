@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import type { PaneNode, SessionKind, Settings, SplitDir, Workspace } from '@shared/types'
 import type { OpenedProject } from '@shared/ipc'
 import { makeId } from '@shared/id'
+import { markPtyClosed } from '../terminal/lifecycle'
 import {
   listPanes,
   newPane,
@@ -150,6 +151,7 @@ export const useStore = create<BunyanState>((set, get) => ({
     const session = ws.sessions.find((s) => s.id === sessionId)
     if (session) {
       for (const pane of paneList(session.layout)) {
+        markPtyClosed(pane.ptyId)
         void window.bunyan.session.kill({ paneId: pane.ptyId })
       }
     }
@@ -161,6 +163,7 @@ export const useStore = create<BunyanState>((set, get) => ({
     const ws = get().workspace
     for (const session of ws.sessions.filter((s) => s.projectId === projectId)) {
       for (const pane of paneList(session.layout)) {
+        markPtyClosed(pane.ptyId)
         void window.bunyan.session.kill({ paneId: pane.ptyId })
       }
     }
@@ -216,7 +219,10 @@ export const useStore = create<BunyanState>((set, get) => ({
     const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
     if (!session) return
     const pane = listPanes(session.layout).find((p) => p.id === paneId)
-    if (pane) void window.bunyan.session.kill({ paneId: pane.ptyId })
+    if (pane) {
+      markPtyClosed(pane.ptyId)
+      void window.bunyan.session.kill({ paneId: pane.ptyId })
+    }
     const layout = closePaneInTree(session.layout, paneId)
     if (layout === null) {
       // Last pane closed: the session goes with it.

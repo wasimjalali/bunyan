@@ -7,7 +7,13 @@ import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
 import type { CursorStyle, Pane, SessionKind } from '@shared/types'
 import { registerPaneTerminal, unregisterPaneTerminal } from './registry'
-import { markScrollbackDirty } from './scrollback'
+import { captureScrollback, markScrollbackDirty } from './scrollback'
+import {
+  forgetClosedPty,
+  stashPaneText,
+  takePaneText,
+  wasPtyClosed,
+} from './lifecycle'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalPaneProps {
@@ -128,6 +134,13 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
           createdPtys.delete(ptyId)
           if (!disposed) term.writeln('\x1b[31mCould not start the session.\x1b[0m')
         })
+    } else {
+      // The PTY already exists, so this is a remount caused by the split tree
+      // changing shape, not a fresh pane. Replay the text we stashed on unmount
+      // so the pane keeps its history instead of going blank while its shell
+      // keeps running.
+      const stashed = takePaneText(ptyId)
+      if (stashed) term.write(stashed)
     }
 
     const ro = new ResizeObserver(() => {
@@ -144,6 +157,15 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       offExit()
       inputSub.dispose()
       unregisterPaneTerminal(pane.id)
+      // A real close (the PTY was killed) discards the pane for good; a
+      // restructure unmount leaves the PTY running, so keep its on-screen text
+      // to replay when the pane remounts in its new position.
+      if (wasPtyClosed(ptyId)) {
+        forgetClosedPty(ptyId)
+        createdPtys.delete(ptyId)
+      } else {
+        stashPaneText(ptyId, captureScrollback(term))
+      }
       term.dispose()
       termRef.current = null
       fitRef.current = null
