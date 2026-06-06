@@ -37,8 +37,12 @@ export function CommandPalette(): React.JSX.Element | null {
         splitActivePane,
         openProject: () => void openProject(),
         openSettings: () => setSettingsOpen(true),
+        // Flip the theme that's actually showing. data-theme holds the resolved
+        // mode (even when the choice is "system"), so this is never a no-op.
         toggleTheme: () =>
-          updateSettings({ theme: workspace.settings.theme === 'light' ? 'dark' : 'light' }),
+          updateSettings({
+            theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light',
+          }),
         close: () => setPalette(false),
       }),
     [workspace, focusSession, newSession, splitActivePane, openProject, setSettingsOpen, updateSettings, setPalette],
