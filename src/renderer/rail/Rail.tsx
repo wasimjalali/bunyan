@@ -1,13 +1,12 @@
-import { useState } from 'react'
 import { useStore } from '../state/store'
 import { activeProjectId, projectSessions, projectStatus } from '@shared/workspace'
+import { useFileDrop } from '../useFileDrop'
 import { ProjectRow } from './ProjectRow'
 
 export function Rail(): React.JSX.Element {
   const workspace = useStore((s) => s.workspace)
   const openProject = useStore((s) => s.openProject)
   const addProjectFromPath = useStore((s) => s.addProjectFromPath)
-  const [folderOver, setFolderOver] = useState(false)
   const newSession = useStore((s) => s.newSession)
   const closeSession = useStore((s) => s.closeSession)
   const closeProject = useStore((s) => s.closeProject)
@@ -41,20 +40,11 @@ export function Rail(): React.JSX.Element {
   // The project owning the active session, so its row reads as current.
   const currentProjectId = activeProjectId(workspace)
 
-  // A folder dragged from Finder carries the 'Files' type; internal row
-  // reorders do not, so this alone distinguishes them. Row drop handlers also
-  // stopPropagation, so a reorder never reaches here.
-  const isFolderDrag = (e: React.DragEvent): boolean => e.dataTransfer.types.includes('Files')
-
-  const onDrop = (e: React.DragEvent): void => {
-    if (!isFolderDrag(e)) return
-    e.preventDefault()
-    setFolderOver(false)
-    for (const file of Array.from(e.dataTransfer.files)) {
-      const path = window.bunyan.app.pathForFile(file)
-      if (path) void addProjectFromPath(path)
-    }
-  }
+  // Folders dropped from Finder become projects. Row drop handlers
+  // stopPropagation, so an internal reorder never reaches here.
+  const { fileOver: folderOver, dropHandlers } = useFileDrop((paths) => {
+    for (const path of paths) void addProjectFromPath(path)
+  })
 
   return (
     <aside
@@ -62,17 +52,7 @@ export function Rail(): React.JSX.Element {
         'rail-depth flex h-full flex-col border-l border-line bg-canvas',
         folderOver ? 'ring-2 ring-inset ring-gold' : '',
       ].join(' ')}
-      onDragOver={(e) => {
-        if (isFolderDrag(e)) {
-          e.preventDefault()
-          setFolderOver(true)
-        }
-      }}
-      onDragLeave={(e) => {
-        // Ignore leave events fired when crossing into a child element.
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setFolderOver(false)
-      }}
-      onDrop={onDrop}
+      {...dropHandlers}
     >
       <header className="drag-region flex h-9 shrink-0 items-center justify-between px-3">
         <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-dim">

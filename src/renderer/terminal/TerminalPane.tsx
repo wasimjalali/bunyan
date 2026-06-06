@@ -14,6 +14,8 @@ import {
   takePaneText,
   wasPtyClosed,
 } from './lifecycle'
+import { pastedPathsText } from './drop-paste'
+import { useFileDrop } from '../useFileDrop'
 import '@xterm/xterm/css/xterm.css'
 
 interface TerminalPaneProps {
@@ -59,6 +61,17 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
   const hostRef = useRef<HTMLDivElement>(null)
   const termRef = useRef<Terminal | null>(null)
   const fitRef = useRef<FitAddon | null>(null)
+
+  // Dropping files pastes their escaped paths, exactly like Terminal.app.
+  // paste() honours bracketed paste, which Claude Code relies on to turn a
+  // dropped image path into an attachment.
+  const { fileOver, dropHandlers } = useFileDrop((paths) => {
+    const term = termRef.current
+    if (!term) return
+    term.paste(pastedPathsText(paths))
+    term.focus()
+    props.onFocus()
+  })
 
   // Mount once per pane. Theme/font changes are applied in a separate effect.
   useEffect(() => {
@@ -186,6 +199,14 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
   }, [theme, fontFamily, fontSize, cursorStyle])
 
   return (
-    <div ref={hostRef} onMouseDown={props.onFocus} className="h-full w-full overflow-hidden px-2 pt-2" />
+    <div
+      ref={hostRef}
+      onMouseDown={props.onFocus}
+      {...dropHandlers}
+      className={[
+        'h-full w-full overflow-hidden px-2 pt-2',
+        fileOver ? 'ring-2 ring-inset ring-gold' : '',
+      ].join(' ')}
+    />
   )
 }

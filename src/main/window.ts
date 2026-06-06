@@ -77,6 +77,13 @@ export function createMainWindow(options: WindowOptions = {}): BrowserWindow {
     return { action: 'deny' }
   })
 
+  // The app never navigates after load. This stops a stray file drop (or any
+  // hijacked link) from replacing the renderer with a file:// page; same-URL
+  // reloads in dev stay allowed.
+  win.webContents.on('will-navigate', (e, url) => {
+    if (url !== win.webContents.getURL()) e.preventDefault()
+  })
+
   if (process.env.ELECTRON_RENDERER_URL) {
     void win.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {

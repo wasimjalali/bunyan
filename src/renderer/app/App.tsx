@@ -39,6 +39,7 @@ export function App(): React.JSX.Element {
 
   useMainEvents()
   useKeymap()
+  useFileDropGuard()
 
   // Tell the main process which session is active so it can clear needs-input on
   // focus and decide when to notify.
@@ -137,6 +138,26 @@ function useMainEvents(): void {
       offFocus()
     }
   }, [applyStatus, focusSession])
+}
+
+/**
+ * A file dropped outside an explicit drop target (rail, terminal pane) would
+ * make Electron navigate the window to that file's URL, replacing the app.
+ * Cancel the default for file drags everywhere; real drop targets have
+ * already handled theirs by the time the event bubbles up here.
+ */
+function useFileDropGuard(): void {
+  useEffect(() => {
+    const cancelFileDrag = (e: DragEvent): void => {
+      if (e.dataTransfer?.types.includes('Files')) e.preventDefault()
+    }
+    window.addEventListener('dragover', cancelFileDrag)
+    window.addEventListener('drop', cancelFileDrag)
+    return () => {
+      window.removeEventListener('dragover', cancelFileDrag)
+      window.removeEventListener('drop', cancelFileDrag)
+    }
+  }, [])
 }
 
 /** The full keyboard map (spec 10.6). Reads live state via getState to stay current. */
