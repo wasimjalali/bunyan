@@ -23,6 +23,7 @@ npm-debug.log*
 # Playwright
 /test-results/
 /playwright-report/
+.playwright-mcp/
 
 # Claude Code transient runtime state
 .claude/scheduled_tasks.lock
