@@ -16,15 +16,20 @@ export async function openProjectDialog(parent: BrowserWindow): Promise<OpenedPr
   return { path: dir, name: path.basename(dir) }
 }
 
+/** True when the path exists, is readable and is a directory. */
+export function isDirectory(target: string): boolean {
+  try {
+    return statSync(target).isDirectory()
+  } catch {
+    // Path does not exist or is not readable.
+    return false
+  }
+}
+
 /** Resolve a dropped path to a project. Returns null unless it is a directory. */
 export function resolveProjectPath(target: string): OpenedProject | null {
-  try {
-    if (!statSync(target).isDirectory()) return null
-    return { path: target, name: path.basename(target) }
-  } catch {
-    // Path does not exist or is not readable: not a project.
-    return null
-  }
+  if (!isDirectory(target)) return null
+  return { path: target, name: path.basename(target) }
 }
 
 /**

@@ -26,7 +26,9 @@ function bootstrap(): void {
 
   const notifier = new MacNotifier(win)
   monitor = new SessionMonitor(makeMonitorEmit(win.webContents), notifier)
-  ptyManager = new PtyManager(makePtyHooks(win.webContents, monitor))
+  // app.getLocale() is the macOS UI locale (e.g. "en-US"); PtyManager uses it to
+  // synthesize a UTF-8 LANG for shells that would otherwise inherit none.
+  ptyManager = new PtyManager(makePtyHooks(win.webContents, monitor), app.getLocale())
 
   registerSessionIpc(ptyManager, monitor)
   registerProjectIpc(win)

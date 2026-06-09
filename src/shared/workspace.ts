@@ -195,19 +195,59 @@ export function projectSessions(ws: Workspace, projectId: string): Session[] {
     .filter((s): s is Session => s !== undefined)
 }
 
+// Activity tiers for the rail's auto-sort: lower sorts higher. An agent running
+// right now (needs-input or working) outranks a live prompt (idle), which
+// outranks a project of only finished sessions, which outranks an empty one.
+const ACTIVITY_TIER: Record<SessionStatus, number> = {
+  'needs-input': 0,
+  working: 0,
+  idle: 1,
+  exited: 2,
+}
+
+/** Count of a project's sessions with an agent running now (working or needs-input). */
+export function runningSessionCount(ws: Workspace, projectId: string): number {
+  return ws.sessions.filter(
+    (s) => s.projectId === projectId && (s.status === 'working' || s.status === 'needs-input'),
+  ).length
+}
+
+/**
+ * Projects sorted by activity, so the ones with a live agent rise to the top.
+ * The sort is stable within a tier: a project's manual rail position is the
+ * tiebreaker, so dragging still sticks among equally-active projects.
+ */
+export function orderProjectsByActivity(ws: Workspace): Project[] {
+  const tierOf = (p: Project): number => {
+    const status = projectStatus(ws, p.id)
+    return status === null ? 3 : ACTIVITY_TIER[status]
+  }
+  return ws.projects
+    .map((project, index) => ({ project, index, tier: tierOf(project) }))
+    .sort((a, b) => a.tier - b.tier || a.index - b.index)
+    .map((d) => d.project)
+}
+
 /** Count of sessions currently needing input, for the dock badge. */
 export function needsInputCount(ws: Workspace): number {
   return ws.sessions.filter((s) => s.status === 'needs-input').length
 }
 
-/** All session ids in rail order: each project's sessions, in project order. */
-export function orderedSessionIds(ws: Workspace): string[] {
-  return ws.projects.flatMap((p) => p.sessionIds)
+/** All session ids in the given project order: each project's sessions, in turn. */
+export function orderedSessionIdsFor(projects: readonly Project[]): string[] {
+  return projects.flatMap((p) => p.sessionIds)
 }
 
-/** The session `step` away from the active one, wrapping around. Null if none. */
-export function sessionByOffset(ws: Workspace, step: number): string | null {
-  const order = orderedSessionIds(ws)
+/**
+ * The session `step` away from the active one, wrapping around, walking the
+ * given displayed project order so Cmd-]/[ track what the eye sees. Null if none.
+ */
+export function sessionByOffsetIn(
+  ws: Workspace,
+  projects: readonly Project[],
+  step: number,
+): string | null {
+  const order = orderedSessionIdsFor(projects)
   if (order.length === 0) return null
   const current = ws.activeSessionId ? order.indexOf(ws.activeSessionId) : -1
   if (current === -1) return order[0]!
@@ -215,9 +255,12 @@ export function sessionByOffset(ws: Workspace, step: number): string | null {
   return order[next]!
 }
 
-/** The nth session (1-based) in rail order, for Cmd-1..9. Null if out of range. */
-export function sessionByIndex(ws: Workspace, oneBased: number): string | null {
-  return orderedSessionIds(ws)[oneBased - 1] ?? null
+/** The nth session (1-based) in the given displayed project order. Null if out of range. */
+export function sessionByIndexIn(
+  projects: readonly Project[],
+  oneBased: number,
+): string | null {
+  return orderedSessionIdsFor(projects)[oneBased - 1] ?? null
 }
 
 /** Move the item at `from` to `to` in a copy of the array. Indices are clamped. */

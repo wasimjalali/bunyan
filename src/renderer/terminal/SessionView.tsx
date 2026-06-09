@@ -15,8 +15,12 @@ interface SessionViewProps {
   fontFamily: string
   fontSize: number
   cursorStyle: CursorStyle
+  /** macOS: Option sends Meta instead of accents. */
+  optionAsMeta: boolean
+  /** This session is a broadcast target; its panes get a gold ring. */
+  broadcasting: boolean
   onFocusPane: (paneId: string) => void
-  onSetRatio: (anchorPaneId: string, ratio: number) => void
+  onSetRatio: (path: Array<'a' | 'b'>, ratio: number) => void
 }
 
 /**
@@ -25,10 +29,17 @@ interface SessionViewProps {
  * pane gets a gold top border.
  */
 export function SessionView(props: SessionViewProps): React.JSX.Element {
-  return <div className="h-full w-full">{renderNode(props.session.layout, props)}</div>
+  return <div className="h-full w-full">{renderNode(props.session.layout, props, [])}</div>
 }
 
-function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element {
+// `path` is the sequence of a/b steps from the root to this node; split dividers
+// use it to address themselves to setRatioAtPath so nested splits move
+// independently of their parents.
+function renderNode(
+  node: PaneNode,
+  props: SessionViewProps,
+  path: Array<'a' | 'b'>,
+): React.JSX.Element {
   if (node.type === 'leaf') {
     const focused = props.focusedPaneId === null || props.focusedPaneId === node.pane.id
     // Only the session's original (first) pane auto-launches Claude; splits are
@@ -40,9 +51,12 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
         : undefined
     return (
       <div
-        className={['h-full w-full border-t-2', focused ? 'border-gold/70' : 'border-transparent'].join(
-          ' ',
-        )}
+        className={[
+          'h-full w-full border-t-2',
+          focused ? 'border-gold/70' : 'border-transparent',
+          // A gold ring makes a broadcast target impossible to miss.
+          props.broadcasting ? 'ring-1 ring-inset ring-gold/60' : '',
+        ].join(' ')}
       >
         <TerminalPane
           pane={node.pane}
@@ -57,31 +71,38 @@ function renderNode(node: PaneNode, props: SessionViewProps): React.JSX.Element 
           fontFamily={props.fontFamily}
           fontSize={props.fontSize}
           cursorStyle={props.cursorStyle}
+          optionAsMeta={props.optionAsMeta}
           onFocus={() => props.onFocusPane(node.pane.id)}
         />
       </div>
     )
   }
-  return <Split node={node} props={props} />
+  return <Split node={node} props={props} path={path} />
 }
 
-function Split({ node, props }: { node: Extract<PaneNode, { type: 'split' }>; props: SessionViewProps }) {
+function Split({
+  node,
+  props,
+  path,
+}: {
+  node: Extract<PaneNode, { type: 'split' }>
+  props: SessionViewProps
+  path: Array<'a' | 'b'>
+}) {
   const containerRef = useRef<HTMLDivElement>(null)
   // Holds the teardown for an in-flight drag, so unmounting mid-drag can't leak
   // window listeners or leave the resize cursor stuck.
   const stopDrag = useRef<(() => void) | null>(null)
   const isRow = node.dir === 'row'
-  const anchorPaneId = listPanes(node.a)[0]?.id ?? ''
 
   useEffect(() => () => stopDrag.current?.(), [])
 
   const startDrag = (e: React.MouseEvent): void => {
-    if (!anchorPaneId) return
     e.preventDefault()
     const onMove = (ev: MouseEvent): void => {
       if (!containerRef.current) return
       const rect = containerRef.current.getBoundingClientRect()
-      props.onSetRatio(anchorPaneId, ratioFromPointer(ev, rect, isRow))
+      props.onSetRatio(path, ratioFromPointer(ev, rect, isRow))
     }
     const stop = (): void => {
       document.body.style.cursor = ''
@@ -101,7 +122,7 @@ function Split({ node, props }: { node: Extract<PaneNode, { type: 'split' }>; pr
       className={['flex h-full w-full', isRow ? 'flex-row' : 'flex-col'].join(' ')}
     >
       <div style={{ flexBasis: `${node.ratio * 100}%` }} className="min-h-0 min-w-0">
-        {renderNode(node.a, props)}
+        {renderNode(node.a, props, [...path, 'a'])}
       </div>
       <div
         onMouseDown={startDrag}
@@ -111,7 +132,7 @@ function Split({ node, props }: { node: Extract<PaneNode, { type: 'split' }>; pr
         ].join(' ')}
       />
       <div style={{ flexBasis: `${(1 - node.ratio) * 100}%` }} className="min-h-0 min-w-0">
-        {renderNode(node.b, props)}
+        {renderNode(node.b, props, [...path, 'b'])}
       </div>
     </div>
   )

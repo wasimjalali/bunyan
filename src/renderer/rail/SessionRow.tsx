@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import type { Session } from '@shared/types'
+import { useStore } from '../state/store'
 import { StatusDot } from './StatusDot'
 import { setDrag, getDrag, clearDrag } from './dnd'
+import { railBadgeClass } from './badge'
 
 interface SessionRowProps {
   session: Session
@@ -23,6 +25,11 @@ export function SessionRow({
   onReorder,
 }: SessionRowProps): React.JSX.Element {
   const [dropTarget, setDropTarget] = useState(false)
+  // New output in a background session. "needs you" outranks it, so we only show
+  // the unread dot when the row is not active and not already flagged for input.
+  const unread = useStore((s) => Boolean(s.unread[session.id]))
+  const needsInput = session.status === 'needs-input'
+  const showUnread = unread && !active && !needsInput
 
   const acceptsDrop = (): boolean => {
     const d = getDrag()
@@ -59,11 +66,12 @@ export function SessionRow({
       )}
       <StatusDot status={session.status} />
       <span className="flex-1 truncate">{session.title}</span>
-      {session.status === 'needs-input' && (
-        <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-gold">
-          needs you
+      {showUnread && (
+        <span className="text-xs leading-none text-gold" title="New output" aria-label="New output">
+          •
         </span>
       )}
+      {needsInput && <span className={railBadgeClass}>needs you</span>}
       <button
         onClick={(e) => {
           e.stopPropagation()

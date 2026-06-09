@@ -2,6 +2,8 @@
 // These are the heuristic layer; they are isolated and fixture-tested so they
 // can be tuned without touching the state machine (spec 9.3).
 
+import type { OscNotification } from './types'
+
 export const BELL = '\x07'
 
 // Matches CSI / OSC / other escape sequences so prompt detection sees plain text.
@@ -38,12 +40,34 @@ export function parseTitle(chunk: string): string | null {
   return m ? (m[2] ?? null) : null
 }
 
+// Agent / shell self-authored notifications:
+//   OSC 9:   ESC ] 9 ; <body> (BEL | ST)
+//   OSC 777: ESC ] 777 ; notify ; <title> ; <body> (BEL | ST)
+// Bodies are matched without a length cap so over-long ones still match (we
+// truncate after), but capped to keep a single notification reasonable.
+// eslint-disable-next-line no-control-regex
+const OSC_9 = /\x1b\]9;([^\x07\x1b]*)(?:\x07|\x1b\\)/
+// eslint-disable-next-line no-control-regex
+const OSC_777_NOTIFY = /\x1b\]777;notify;([^;\x07\x1b]{0,100});([^\x07\x1b]*)(?:\x07|\x1b\\)/
+const OSC_MSG_MAX = 200
+
+function parseOscNotification(chunk: string): OscNotification | undefined {
+  // OSC 777 first: it is the richer form (title + body).
+  const m777 = OSC_777_NOTIFY.exec(chunk)
+  if (m777) return { title: m777[1] || null, body: m777[2]!.slice(0, OSC_MSG_MAX) }
+  const m9 = OSC_9.exec(chunk)
+  if (m9) return { title: null, body: m9[1]!.slice(0, OSC_MSG_MAX) }
+  return undefined
+}
+
 export interface ChunkSignals {
   bell: boolean
   claudeWorking: boolean
   claudeConfirm: boolean
   hasOutput: boolean
   title: string | null
+  /** An agent- or shell-authored OSC 9/777 notification, if the chunk had one. */
+  oscNotification?: OscNotification
 }
 
 // Claude Code prints a working line with "esc to interrupt"; confirmation
@@ -59,12 +83,14 @@ export function analyzeChunk(chunk: string): ChunkSignals {
   // Visible content only: drop control bytes (bell, CR/LF, etc.) so a lone bell
   // or a bare newline doesn't register as program output.
   const visible = plain.replace(CONTROL, '').trim()
+  const oscNotification = parseOscNotification(chunk)
   return {
     bell: chunk.includes(BELL),
     claudeWorking: CLAUDE_WORKING.test(plain),
     claudeConfirm: CLAUDE_CONFIRM.test(plain),
     hasOutput: visible.length > 0,
     title: parseTitle(chunk),
+    ...(oscNotification ? { oscNotification } : {}),
   }
 }
 

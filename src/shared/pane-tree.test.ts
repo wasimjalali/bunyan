@@ -7,10 +7,10 @@ import {
   countPanes,
   splitPane,
   closePane,
-  setRatio,
+  setRatioAtPath,
   nextFocusAfterClose,
 } from './pane-tree'
-import type { Pane } from './types'
+import type { Pane, PaneNode } from './types'
 
 function pane(id: string): Pane {
   return { id, ptyId: `pty_${id}` }
@@ -63,16 +63,29 @@ describe('pane-tree', () => {
     expect(after && listPanes(after).map((p) => p.id)).toEqual(['a', 'c'])
   })
 
-  it('setRatio updates the split whose a-side begins with the given pane', () => {
-    const tree = splitPane(makeLeaf(pane('a')), 'a', 'row', pane('b'))
-    const after = setRatio(tree, 'a', 0.7)
-    expect(after.type === 'split' && after.ratio).toBe(0.7)
+  it('setRatioAtPath targets a nested a-side split independently of its parent', () => {
+    // root split S1: a = (split S2: a=leaf p1, b=leaf p2), b = leaf p3
+    const p1 = makeLeaf(newPane('t1'))
+    const p2 = makeLeaf(newPane('t2'))
+    const p3 = makeLeaf(newPane('t3'))
+    const s2: PaneNode = { type: 'split', dir: 'col', a: p1, b: p2, ratio: 0.5 }
+    const root: PaneNode = { type: 'split', dir: 'row', a: s2, b: p3, ratio: 0.5 }
+    const next = setRatioAtPath(root, ['a'], 0.3)
+    expect(next.type === 'split' && next.a.type === 'split' && next.a.ratio).toBe(0.3)
+    expect(next.type === 'split' && next.ratio).toBe(0.5) // parent untouched
+    const next2 = setRatioAtPath(root, [], 0.7)
+    expect(next2.type === 'split' && next2.ratio).toBe(0.7)
   })
 
-  it('setRatio clamps to a usable range', () => {
+  it('setRatioAtPath clamps to [0.1, 0.9] and ignores invalid paths', () => {
+    // path ['a'] into a leaf returns the tree unchanged; ratio 0.05 clamps to 0.1
+    const leaf = makeLeaf(pane('a'))
+    expect(setRatioAtPath(leaf, ['a'], 0.5)).toBe(leaf)
     const tree = splitPane(makeLeaf(pane('a')), 'a', 'row', pane('b'))
-    expect((setRatio(tree, 'a', 0.001) as { ratio: number }).ratio).toBe(0.1)
-    expect((setRatio(tree, 'a', 5) as { ratio: number }).ratio).toBe(0.9)
+    // The a-side is a leaf, so descending into ['a'] leaves the tree unchanged.
+    expect(setRatioAtPath(tree, ['a'], 0.7)).toBe(tree)
+    expect((setRatioAtPath(tree, [], 0.05) as { ratio: number }).ratio).toBe(0.1)
+    expect((setRatioAtPath(tree, [], 5) as { ratio: number }).ratio).toBe(0.9)
   })
 
   it('nextFocusAfterClose returns a surviving pane, or null when none remain', () => {

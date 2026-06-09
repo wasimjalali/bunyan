@@ -20,6 +20,8 @@
   --color-gold-soft: #e0c687;
   --color-charcoal: #2d3748;
   --color-error: #ed6a5e;
+  /* Deep espresso: the chip initial letter, readable on every project shade. */
+  --color-espresso: #3a2c10;
 
   /* Semantic (dark theme defaults) */
   --color-canvas: #0c1929;
@@ -95,7 +97,12 @@ body {
  * - rail-depth: a barely-there vertical wash plus a left inner highlight so the
  *   rail reads as a raised surface, not a flat block.
  * - title-hairline: a thin gold-tinted accent under the title bar.
- * - chip-raise: an inner highlight + soft shadow on the project initial chip.
+ * - chip-gloss: a polished enamel treatment for project colour chips (rail
+ *   initial, palette dot, picker swatch). The chip's own colour is set inline as
+ *   background-color; this layers a faint lighter-at-top gradient, an inner top
+ *   highlight and a hairline ring over it so it reads as glossy metal, not a
+ *   flat square. Tasteful and calm: no animation, no heavy shadow. The ring uses
+ *   a dark edge plus a light edge so it stays visible on dark and light themes.
  */
 .rail-depth {
   background-image: linear-gradient(
@@ -108,13 +115,34 @@ body {
 .title-hairline {
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-gold) 28%, transparent);
 }
-.chip-raise {
+.chip-gloss {
+  /* A subtle vertical sheen, lighter at the top, painted over the inline
+     background-color so the chip's own shade still reads. */
+  background-image: linear-gradient(
+    to bottom,
+    rgba(255, 255, 255, 0.34),
+    rgba(255, 255, 255, 0.06) 48%,
+    rgba(0, 0, 0, 0.08)
+  );
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
+    /* inner top highlight */
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    /* hairline ring: dark edge for light themes, light edge for dark themes */
+    inset 0 0 0 0.5px rgba(58, 44, 16, 0.28),
+    0 0 0 0.5px rgba(255, 255, 255, 0.12),
     var(--shadow-1);
   transition:
     transform var(--dur-fast) var(--ease-out),
     box-shadow var(--dur-fast) var(--ease-out);
+}
+/* Active project chip: the gold ring is folded into the chip's own box-shadow
+   (rather than Tailwind's ring utility, which would be overridden by the gloss
+   shadow declared later in this sheet). */
+.chip-gloss-active {
+  box-shadow:
+    0 0 0 1px var(--color-gold),
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    var(--shadow-1);
 }
 .row-smooth {
   transition:
@@ -123,7 +151,7 @@ body {
     box-shadow var(--dur-fast) var(--ease-soft);
 }
 @media (prefers-reduced-motion: reduce) {
-  .chip-raise,
+  .chip-gloss,
   .row-smooth {
     transition: none;
   }

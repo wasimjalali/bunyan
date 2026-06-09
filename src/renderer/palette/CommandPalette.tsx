@@ -3,6 +3,7 @@ import type { SessionStatus, Workspace } from '@shared/types'
 import { fuzzyFilter } from '@shared/fuzzy'
 import { activeOrFirstProjectId, projectSessions } from '@shared/workspace'
 import { useStore } from '../state/store'
+import { getPaneHandles } from '../terminal/registry'
 import { StatusDot } from '../rail/StatusDot'
 
 interface Command {
@@ -11,6 +12,10 @@ interface Command {
   subtitle?: string
   hint?: string
   status?: SessionStatus | null
+  /** A small tag shown on the right, e.g. "snippet". */
+  tag?: string
+  /** The owning project's chip colour, shown as a small glossy dot. */
+  color?: string
   run: () => void
 }
 
@@ -24,6 +29,9 @@ export function CommandPalette(): React.JSX.Element | null {
   const openProject = useStore((s) => s.openProject)
   const setSettingsOpen = useStore((s) => s.setSettingsOpen)
   const updateSettings = useStore((s) => s.updateSettings)
+  const startBroadcast = useStore((s) => s.startBroadcast)
+  const stopBroadcast = useStore((s) => s.stopBroadcast)
+  const broadcasting = useStore((s) => s.ui.broadcastSessionIds !== null)
 
   const [query, setQuery] = useState('')
   const [selected, setSelected] = useState(0)
@@ -43,9 +51,25 @@ export function CommandPalette(): React.JSX.Element | null {
           updateSettings({
             theme: document.documentElement.getAttribute('data-theme') === 'light' ? 'dark' : 'light',
           }),
+        startBroadcast,
+        stopBroadcast,
+        broadcasting,
+        pasteSnippet,
         close: () => setPalette(false),
       }),
-    [workspace, focusSession, newSession, splitActivePane, openProject, setSettingsOpen, updateSettings, setPalette],
+    [
+      workspace,
+      focusSession,
+      newSession,
+      splitActivePane,
+      openProject,
+      setSettingsOpen,
+      updateSettings,
+      startBroadcast,
+      stopBroadcast,
+      broadcasting,
+      setPalette,
+    ],
   )
 
   const results = useMemo(
@@ -121,9 +145,20 @@ export function CommandPalette(): React.JSX.Element | null {
                     i === selected ? 'bg-gold/15 text-ink' : 'text-ink-dim hover:bg-line/60',
                   ].join(' ')}
                 >
+                  {cmd.color && (
+                    <span
+                      className="chip-gloss h-3 w-3 shrink-0 rounded-full"
+                      style={{ backgroundColor: cmd.color }}
+                    />
+                  )}
                   {cmd.status !== undefined && <StatusDot status={cmd.status} />}
                   <span className="flex-1 truncate text-ink">{cmd.title}</span>
                   {cmd.subtitle && <span className="truncate text-xs text-ink-dim">{cmd.subtitle}</span>}
+                  {cmd.tag && (
+                    <span className="ml-1 rounded bg-gold/20 px-1.5 py-0.5 text-[10px] text-gold">
+                      {cmd.tag}
+                    </span>
+                  )}
                   {cmd.hint && (
                     <span className="ml-1 rounded bg-line px-1.5 py-0.5 text-[10px] text-ink-dim">
                       {cmd.hint}
@@ -146,7 +181,22 @@ interface CommandDeps {
   openProject: () => void
   openSettings: () => void
   toggleTheme: () => void
+  startBroadcast: () => void
+  stopBroadcast: () => void
+  broadcasting: boolean
+  pasteSnippet: (text: string) => void
   close: () => void
+}
+
+// Paste a snippet into the focused pane's terminal. paste() (not write) so
+// bracketed paste protects agents like Claude Code from running it as commands.
+function pasteSnippet(text: string): void {
+  const { focusedPaneId } = useStore.getState()
+  if (!focusedPaneId) return
+  const handles = getPaneHandles(focusedPaneId)
+  if (!handles) return
+  handles.term.paste(text)
+  handles.term.focus()
 }
 
 function buildCommands(ws: Workspace, deps: CommandDeps): Command[] {
@@ -177,6 +227,26 @@ function buildCommands(ws: Workspace, deps: CommandDeps): Command[] {
   commands.push({ id: 'act:open', title: 'Open project', hint: '⌘O', run: deps.openProject })
   commands.push({ id: 'act:theme', title: 'Toggle theme', run: deps.toggleTheme })
   commands.push({ id: 'act:settings', title: 'Settings', hint: '⌘,', run: deps.openSettings })
+  commands.push(
+    deps.broadcasting
+      ? { id: 'act:broadcast-stop', title: 'Stop broadcasting', run: deps.stopBroadcast }
+      : {
+          id: 'act:broadcast',
+          title: 'Broadcast input to project sessions',
+          hint: '⌘⇧B',
+          run: deps.startBroadcast,
+        },
+  )
+
+  // Snippets: fire a saved prompt into the focused pane.
+  for (const snippet of ws.settings.snippets) {
+    commands.push({
+      id: `snip:${snippet.id}`,
+      title: snippet.name,
+      tag: 'snippet',
+      run: () => deps.pasteSnippet(snippet.text),
+    })
+  }
 
   // Sessions, grouped under their project.
   for (const project of ws.projects) {
@@ -186,6 +256,7 @@ function buildCommands(ws: Workspace, deps: CommandDeps): Command[] {
         title: session.title,
         subtitle: project.name,
         status: session.status,
+        color: project.color,
         run: () => deps.focusSession(session.id),
       })
     }

@@ -91,7 +91,7 @@ describe('SessionMonitor', () => {
 
   it('respects notifications-off: status still changes but no notification fires', () => {
     const { monitor, statuses, notify } = setup()
-    monitor.setNotifyPrefs({ notifications: false, bell: 'status-only' })
+    monitor.setNotifyPrefs({ notifications: false, bell: 'status-only', silenceAlertSeconds: 0 })
     monitor.register('pty1', 'ses1', 'alpha')
     monitor.setActiveSession('other')
     monitor.onData('pty1', fixtures.bell)
@@ -101,7 +101,7 @@ describe('SessionMonitor', () => {
 
   it('respects bell-off: a bell no longer raises needs-input', () => {
     const { monitor, statuses } = setup()
-    monitor.setNotifyPrefs({ notifications: true, bell: 'off' })
+    monitor.setNotifyPrefs({ notifications: true, bell: 'off', silenceAlertSeconds: 0 })
     monitor.register('pty1', 'ses1')
     monitor.setActiveSession('other')
     monitor.onData('pty1', fixtures.bell)
@@ -110,7 +110,7 @@ describe('SessionMonitor', () => {
 
   it('plays a sound on notify when the bell mode is sound', () => {
     const { monitor, notify } = setup()
-    monitor.setNotifyPrefs({ notifications: true, bell: 'sound' })
+    monitor.setNotifyPrefs({ notifications: true, bell: 'sound', silenceAlertSeconds: 0 })
     monitor.register('pty1', 'ses1', 'alpha')
     monitor.setActiveSession('other')
     monitor.onData('pty1', fixtures.bell)
@@ -125,5 +125,80 @@ describe('SessionMonitor', () => {
     expect(last(statuses)).not.toBe('exited') // p2 still alive (idle)
     monitor.onExit('p2')
     expect(last(statuses)).toBe('exited')
+  })
+
+  it('an OSC notification while unfocused needs input and notifies once with the message', () => {
+    const { monitor, statuses, notify } = setup()
+    monitor.register('pty1', 'ses1', 'alpha')
+    monitor.setActiveSession('other') // ses1 is not focused
+    monitor.onData('pty1', '\x1b]9;Claude needs your approval\x07')
+    expect(last(statuses)).toBe('needs-input')
+    // Exactly one notification, carrying the agent-authored body verbatim.
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith('ses1', 'alpha', {
+      silent: true,
+      body: 'Claude needs your approval',
+    })
+  })
+
+  it('notifies once when a working session goes quiet, and re-arms on new data', () => {
+    const { monitor, notify } = setup()
+    monitor.setNotifyPrefs({ notifications: true, bell: 'status-only', silenceAlertSeconds: 5 })
+    monitor.register('pty1', 'ses1', 'alpha')
+    monitor.setActiveSession('other')
+    monitor.onData('pty1', fixtures.shellRunning) // -> working, arms the silence timer
+    // The quiet window (700ms) settles first; the tail is not prompt-like, so the
+    // pane stays 'working'. The silence timer (5s) then fires.
+    vi.advanceTimersByTime(5000)
+    expect(notify).toHaveBeenCalledTimes(1)
+    expect(notify).toHaveBeenCalledWith('ses1', 'alpha', {
+      silent: true,
+      body: 'Still working but quiet for 5s',
+    })
+    // It must not spam: more silence with no new data does not re-notify.
+    vi.advanceTimersByTime(5000)
+    expect(notify).toHaveBeenCalledTimes(1)
+    // New data re-arms the timer and clears the notified flag.
+    monitor.onData('pty1', fixtures.shellRunning)
+    vi.advanceTimersByTime(5000)
+    expect(notify).toHaveBeenCalledTimes(2)
+  })
+
+  it('re-registering a live pane clears its old timers (renderer reload)', () => {
+    const { monitor, notify } = setup()
+    monitor.setNotifyPrefs({ notifications: true, bell: 'status-only', silenceAlertSeconds: 5 })
+    monitor.register('pty1', 'ses1', 'alpha')
+    monitor.setActiveSession('other')
+    monitor.onData('pty1', fixtures.shellRunning) // working, silence timer armed
+    // A renderer reload re-creates the pane with the same persisted ptyId. The
+    // old pane's timers must not fire against the fresh registration.
+    monitor.register('pty1', 'ses1', 'alpha')
+    vi.advanceTimersByTime(60_000)
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('does not arm the silence timer when silenceAlertSeconds is 0', () => {
+    const { monitor, notify } = setup()
+    monitor.register('pty1', 'ses1', 'alpha')
+    monitor.setActiveSession('other')
+    monitor.onData('pty1', fixtures.shellRunning)
+    vi.advanceTimersByTime(60_000)
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('drops a pane from its maps when the process exits on its own', () => {
+    const { monitor, statuses } = setup()
+    monitor.register('pty1', 'ses1', 'alpha')
+    monitor.onData('pty1', fixtures.shellRunning)
+    expect(monitor.paneCount()).toBe(1)
+    monitor.onExit('pty1')
+    // The exit still reaches the renderer for a single-pane session...
+    expect(last(statuses)).toBe('exited')
+    // ...but the pane entry is gone, so the maps don't grow unbounded.
+    expect(monitor.paneCount()).toBe(0)
+    // A later aggregate must not resurrect the dropped pane's status.
+    statuses.length = 0
+    monitor.setActiveSession('ses1')
+    expect(statuses).toHaveLength(0)
   })
 })

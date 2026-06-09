@@ -1,18 +1,21 @@
-import { ipcMain, type BrowserWindow, type WebContents } from 'electron'
+import { ipcMain, shell, type BrowserWindow, type WebContents } from 'electron'
+import os from 'node:os'
 import { IPC } from '@shared/ipc'
 import type { SessionDataEvent, SessionExitEvent, SessionStatusEvent } from '@shared/ipc'
 import type { SessionStatus, Workspace } from '@shared/types'
 import type { PtyManager } from './pty/PtyManager'
 import type { WorkspaceStore } from './store/WorkspaceStore'
 import type { SessionMonitor } from './monitor/SessionMonitor'
-import { openProjectDialog, readGitBranch, resolveProjectPath } from './project'
+import { isDirectory, openProjectDialog, readGitBranch, resolveProjectPath } from './project'
 import {
   validateCreate,
   validateWrite,
   validateResize,
   validateKill,
+  validateAck,
   validateGitBranch,
   validateNotifyPrefs,
+  validateOpenInEditor,
   ValidationError,
 } from './ipc-validate'
 
@@ -24,6 +27,12 @@ import {
 export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): void {
   ipcMain.handle(IPC.sessionCreate, (_e, raw) => {
     const req = guard(() => validateCreate(raw))
+    // A saved session can outlive its working directory (moved or deleted repo).
+    // Fail loud rather than silently dropping the user into their home folder;
+    // the renderer renders this rejection as red error text in the pane.
+    if (req.cwd !== '' && !isDirectory(req.cwd)) {
+      throw new Error('Working directory no longer exists')
+    }
     monitor.register(req.paneId, req.sessionId, req.projectName)
     pty.create({
       ptyId: req.paneId,
@@ -45,6 +54,13 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
   ipcMain.on(IPC.sessionResize, (_e, raw) => {
     const req = tryValidate(() => validateResize(raw))
     if (req) pty.resize(req.paneId, req.cols, req.rows)
+  })
+
+  // Flow-control ack: the renderer reports how much output it has drained so the
+  // PTY can resume after a backpressure pause. One-way, high frequency.
+  ipcMain.on(IPC.sessionAck, (_e, raw) => {
+    const req = tryValidate(() => validateAck(raw))
+    if (req) pty.ack(req.paneId, req.chars)
   })
 
   ipcMain.handle(IPC.sessionKill, (_e, raw) => {
@@ -74,6 +90,37 @@ export function registerProjectIpc(win: BrowserWindow): void {
     const req = guard(() => validateGitBranch(raw))
     return readGitBranch(req.path)
   })
+
+  ipcMain.handle(IPC.appOpenInEditor, (_e, raw) => {
+    // Expand a leading "~" to the home dir BEFORE validating, so the validator
+    // can insist on an absolute path (the renderer can't reach os.homedir()).
+    const expanded = expandHome(raw)
+    const req = guard(() => validateOpenInEditor(expanded))
+    // vscode/cursor/zed/windsurf all answer the same "{scheme}://file{path}"
+    // URI, with ":line[:col]" appended when we have a position. encodeURI keeps
+    // spaces and unicode from breaking the URI but passes "#" and "?" through,
+    // which would truncate the path into a fragment or query; encode them too.
+    const encodedPath = encodeURI(req.path).replace(/#/g, '%23').replace(/\?/g, '%3F')
+    let uri = `${req.editor}://file${encodedPath}`
+    if (req.line !== undefined) {
+      uri += `:${req.line}`
+      if (req.col !== undefined) uri += `:${req.col}`
+    }
+    void shell.openExternal(uri)
+  })
+}
+
+// Replace a leading "~" in the request's path with the user's home directory,
+// returning a shallow copy. Non-objects and non-string paths pass through for
+// the validator to reject.
+function expandHome(raw: unknown): unknown {
+  if (typeof raw !== 'object' || raw === null) return raw
+  const o = raw as Record<string, unknown>
+  const path = o.path
+  if (typeof path !== 'string') return raw
+  if (path === '~') return { ...o, path: os.homedir() }
+  if (path.startsWith('~/')) return { ...o, path: os.homedir() + path.slice(1) }
+  return raw
 }
 
 /** Workspace load/save. */

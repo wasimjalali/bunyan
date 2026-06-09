@@ -16,10 +16,36 @@ export function SearchBar(): React.JSX.Element | null {
   const focusedPaneId = useStore((s) => s.focusedPaneId)
   const [query, setQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
+  // The last pane we painted match decorations on. Decorations live on the
+  // terminal, not in React, so when focus moves (or search closes) we have to
+  // clear the pane we left behind by hand. Read via ref so the effect doesn't
+  // re-run on every keystroke.
+  const prevPaneRef = useRef<string | null>(null)
+  const queryRef = useRef(query)
+  queryRef.current = query
 
   useEffect(() => {
-    if (open) inputRef.current?.focus()
-    else if (focusedPaneId) getPaneHandles(focusedPaneId)?.search.clearDecorations()
+    const prev = prevPaneRef.current
+    if (open) {
+      inputRef.current?.focus()
+      if (focusedPaneId !== prev) {
+        // Focus moved while search is open: strip highlights off the old pane,
+        // then re-run the search on the new one so the highlights follow focus.
+        if (prev) getPaneHandles(prev)?.search.clearDecorations()
+        if (focusedPaneId && queryRef.current !== '') {
+          getPaneHandles(focusedPaneId)?.search.findNext(queryRef.current, {
+            decorations: DECORATIONS,
+            incremental: false,
+          })
+        }
+      }
+    } else {
+      // Closing: clear the current pane (the one that has live highlights) and
+      // the previous one, in case focus moved without a re-search in between.
+      if (focusedPaneId) getPaneHandles(focusedPaneId)?.search.clearDecorations()
+      if (prev && prev !== focusedPaneId) getPaneHandles(prev)?.search.clearDecorations()
+    }
+    prevPaneRef.current = focusedPaneId
   }, [open, focusedPaneId])
 
   if (!open) return null

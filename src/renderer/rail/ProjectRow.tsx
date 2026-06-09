@@ -3,12 +3,14 @@ import { PROJECT_COLORS, type Project, type Session, type SessionStatus } from '
 import { StatusDot } from './StatusDot'
 import { SessionRow } from './SessionRow'
 import { setDrag, getDrag, clearDrag } from './dnd'
+import { railBadgeClass } from './badge'
 
 interface ProjectRowProps {
   project: Project
   index: number
   sessions: Session[]
   status: SessionStatus | null
+  runningCount: number
   active: boolean
   activeSessionId: string | null
   onToggleCollapse: () => void
@@ -25,7 +27,7 @@ interface ProjectRowProps {
 }
 
 export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
-  const { project, sessions, status, active, activeSessionId } = props
+  const { project, sessions, status, runningCount, active, activeSessionId } = props
   const [menuOpen, setMenuOpen] = useState(false)
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
@@ -124,6 +126,10 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           </button>
         )}
 
+        {runningCount > 0 && (
+          <span className={`shrink-0 ${railBadgeClass}`}>{runningCount} live</span>
+        )}
+
         {project.branch && (
           <span className="max-w-20 truncate rounded bg-line px-1.5 py-0.5 text-[10px] text-ink-dim">
             {project.branch}
@@ -192,12 +198,13 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
   )
 }
 
-// The project initial chip: raised with an inner highlight, gold-ringed when
-// the project owns the active session.
+// The project initial chip: glossy enamel with a deep espresso letter that
+// stays readable on every project shade, gold-ringed when the project owns the
+// active session.
 function chipClass(active: boolean): string {
   return [
-    'chip-raise flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-deep-navy',
-    active ? 'ring-1 ring-gold' : '',
+    'chip-gloss flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-espresso',
+    active ? 'chip-gloss-active' : '',
   ].join(' ')
 }
 
@@ -235,13 +242,13 @@ function ProjectMenu(props: {
         </button>
         <div className="px-2 py-1.5">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-dim">Colour</div>
-          <div className="flex gap-1.5">
+          <div className="flex flex-wrap gap-1.5">
             {PROJECT_COLORS.map((c) => (
               <button
                 key={c}
                 onClick={() => props.onRecolor(c)}
                 title={c}
-                className="h-4 w-4 rounded-full ring-1 ring-line"
+                className="chip-gloss h-4 w-4 rounded-full"
                 style={{ backgroundColor: c }}
               />
             ))}

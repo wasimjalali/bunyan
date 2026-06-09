@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import { DEFAULT_SETTINGS } from '@shared/types'
 import type { PaneNode, SessionKind, Settings, SplitDir, Workspace } from '@shared/types'
 import type { OpenedProject } from '@shared/ipc'
 import { makeId } from '@shared/id'
@@ -8,7 +9,7 @@ import {
   newPane,
   splitPane,
   closePane as closePaneInTree,
-  setRatio as setRatioInTree,
+  setRatioAtPath,
   nextFocusAfterClose,
 } from '@shared/pane-tree'
 import {
@@ -39,12 +40,16 @@ interface BunyanState {
   focusedPaneId: string | null
   /** Dimmed "previous session" text to write into a restored pane, keyed by ptyId. */
   restoreNotes: Record<string, string>
+  /** Sessions with new output since they were last active. Transient, keyed by sessionId. */
+  unread: Record<string, true>
   /** Transient UI flags (not persisted). */
   ui: {
     paletteOpen: boolean
     settingsOpen: boolean
     searchOpen: boolean
     railVisible: boolean
+    /** Sessions receiving broadcast keystrokes, or null when broadcast is off. */
+    broadcastSessionIds: string[] | null
   }
 
   hydrate(): Promise<void>
@@ -59,16 +64,20 @@ interface BunyanState {
   reorderProject(projectId: string, toIndex: number): void
   reorderSession(projectId: string, sessionId: string, toIndex: number): void
   focusSession(sessionId: string | null): void
+  markUnread(sessionId: string): void
+  clearUnread(sessionId: string): void
   focusPane(paneId: string): void
   splitActivePane(dir: SplitDir): void
   closePane(paneId: string): void
-  setSplitRatio(anchorPaneId: string, ratio: number): void
+  setSplitRatio(sessionId: string, path: Array<'a' | 'b'>, ratio: number): void
   applyStatus(sessionId: string, status: Workspace['sessions'][number]['status']): void
   updateSettings(patch: Partial<Settings>): void
   setPalette(open: boolean): void
   setSettingsOpen(open: boolean): void
   setSearch(open: boolean): void
   toggleRail(): void
+  startBroadcast(): void
+  stopBroadcast(): void
 }
 
 function firstPaneId(ws: Workspace, sessionId: string | null): string | null {
@@ -98,11 +107,24 @@ export const useStore = create<BunyanState>((set, get) => ({
   hydrated: false,
   focusedPaneId: null,
   restoreNotes: {},
-  ui: { paletteOpen: false, settingsOpen: false, searchOpen: false, railVisible: true },
+  unread: {},
+  ui: {
+    paletteOpen: false,
+    settingsOpen: false,
+    searchOpen: false,
+    railVisible: true,
+    broadcastSessionIds: null,
+  },
 
   async hydrate() {
     const loaded = await window.bunyan.store.load()
     const workspace = loaded ?? createDefaultWorkspace()
+    // Backfill any settings keys added since this workspace was last saved, so an
+    // older saved file gets defaults for new fields (e.g. silenceAlertSeconds)
+    // instead of leaving them undefined.
+    if (loaded) {
+      workspace.settings = { ...DEFAULT_SETTINGS, ...loaded.settings }
+    }
     // The claude-auto-relaunch setting governs restore: when it's off, restored
     // Claude sessions come back as plain shells (no auto `claude`).
     if (loaded && !workspace.settings.claudeAutoRelaunch) {
@@ -156,7 +178,13 @@ export const useStore = create<BunyanState>((set, get) => ({
       }
     }
     const workspace = removeSession(ws, sessionId)
-    set({ workspace, focusedPaneId: firstPaneId(workspace, workspace.activeSessionId) })
+    set((s) => ({
+      workspace,
+      focusedPaneId: firstPaneId(workspace, workspace.activeSessionId),
+      // A broadcast member closing breaks the set; stop rather than silently
+      // dropping a target.
+      ui: clearBroadcastIfMember(s.ui, sessionId),
+    }))
   },
 
   closeProject(projectId) {
@@ -167,8 +195,14 @@ export const useStore = create<BunyanState>((set, get) => ({
         void window.bunyan.session.kill({ paneId: pane.ptyId })
       }
     }
+    const closedIds = new Set(ws.sessions.filter((s) => s.projectId === projectId).map((s) => s.id))
     const workspace = removeProject(ws, projectId)
-    set({ workspace, focusedPaneId: firstPaneId(workspace, workspace.activeSessionId) })
+    set((s) => ({
+      workspace,
+      focusedPaneId: firstPaneId(workspace, workspace.activeSessionId),
+      // Closing the project that owns broadcast members ends broadcast.
+      ui: clearBroadcastIfAnyMember(s.ui, closedIds),
+    }))
   },
 
   rename(projectId, name) {
@@ -195,7 +229,20 @@ export const useStore = create<BunyanState>((set, get) => ({
     set((s) => ({
       workspace: setActiveSession(s.workspace, sessionId),
       focusedPaneId: firstPaneId(s.workspace, sessionId),
+      // Focusing a session means you've seen its output; drop its unread flag.
+      unread: sessionId ? clearUnread(s.unread, sessionId) : s.unread,
+      // Leaving the broadcast set ends broadcast: typing into an outside session
+      // shouldn't silently fan out to the old group.
+      ui: clearBroadcastIfOutside(s.ui, sessionId),
     }))
+  },
+
+  markUnread(sessionId) {
+    set((s) => ({ unread: { ...s.unread, [sessionId]: true } }))
+  },
+
+  clearUnread(sessionId) {
+    set((s) => ({ unread: clearUnread(s.unread, sessionId) }))
   },
 
   focusPane(paneId) {
@@ -227,7 +274,12 @@ export const useStore = create<BunyanState>((set, get) => ({
     if (layout === null) {
       // Last pane closed: the session goes with it.
       const next = removeSession(workspace, session.id)
-      set({ workspace: next, focusedPaneId: firstPaneId(next, next.activeSessionId) })
+      set((s) => ({
+        workspace: next,
+        focusedPaneId: firstPaneId(next, next.activeSessionId),
+        // A broadcast member's session closing breaks the set; stop broadcast.
+        ui: clearBroadcastIfMember(s.ui, session.id),
+      }))
       return
     }
     set({
@@ -236,11 +288,13 @@ export const useStore = create<BunyanState>((set, get) => ({
     })
   },
 
-  setSplitRatio(anchorPaneId, ratio) {
+  // Keyed by the divider's own session, not the active one: a session switch
+  // mid-drag must not write the ratio into whichever session became active.
+  setSplitRatio(sessionId, path, ratio) {
     const { workspace } = get()
-    const session = workspace.sessions.find((s) => s.id === workspace.activeSessionId)
+    const session = workspace.sessions.find((s) => s.id === sessionId)
     if (!session) return
-    const layout = setRatioInTree(session.layout, anchorPaneId, ratio)
+    const layout = setRatioAtPath(session.layout, path, ratio)
     set({ workspace: setSessionLayout(workspace, session.id, layout) })
   },
 
@@ -267,10 +321,59 @@ export const useStore = create<BunyanState>((set, get) => ({
   toggleRail() {
     set((s) => ({ ui: { ...s.ui, railVisible: !s.ui.railVisible } }))
   },
+
+  // Broadcast keystrokes to every live session of the active project. Fewer than
+  // two live members is a no-op: broadcasting to yourself is just noise.
+  startBroadcast() {
+    const ws = get().workspace
+    const active = ws.sessions.find((s) => s.id === ws.activeSessionId)
+    if (!active) return
+    const ids = ws.sessions
+      .filter((s) => s.projectId === active.projectId && s.status !== 'exited')
+      .map((s) => s.id)
+    if (ids.length < 2) return
+    set((s) => ({ ui: { ...s.ui, broadcastSessionIds: ids } }))
+  },
+
+  stopBroadcast() {
+    set((s) => (s.ui.broadcastSessionIds === null ? {} : { ui: { ...s.ui, broadcastSessionIds: null } }))
+  },
 }))
 
 function paneList(node: PaneNode) {
   return listPanes(node)
+}
+
+// Drop one session's unread flag, returning the same object reference when it
+// wasn't set so callers don't trigger a needless re-render.
+function clearUnread(unread: Record<string, true>, sessionId: string): Record<string, true> {
+  if (!unread[sessionId]) return unread
+  const next = { ...unread }
+  delete next[sessionId]
+  return next
+}
+
+type Ui = BunyanState['ui']
+
+// End broadcast when the newly active session is NOT one of its targets.
+function clearBroadcastIfOutside(ui: Ui, sessionId: string | null): Ui {
+  const ids = ui.broadcastSessionIds
+  if (!ids || (sessionId !== null && ids.includes(sessionId))) return ui
+  return { ...ui, broadcastSessionIds: null }
+}
+
+// End broadcast when a target session is closing.
+function clearBroadcastIfMember(ui: Ui, sessionId: string): Ui {
+  const ids = ui.broadcastSessionIds
+  if (!ids || !ids.includes(sessionId)) return ui
+  return { ...ui, broadcastSessionIds: null }
+}
+
+// End broadcast when any of `sessionIds` is a target (a whole project closing).
+function clearBroadcastIfAnyMember(ui: Ui, sessionIds: Set<string>): Ui {
+  const ids = ui.broadcastSessionIds
+  if (!ids || !ids.some((id) => sessionIds.has(id))) return ui
+  return { ...ui, broadcastSessionIds: null }
 }
 
 // Shared by openProject (dialog) and addProjectFromPath (drop): add the project,

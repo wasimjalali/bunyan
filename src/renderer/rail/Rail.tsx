@@ -1,5 +1,11 @@
 import { useStore } from '../state/store'
-import { activeProjectId, projectSessions, projectStatus } from '@shared/workspace'
+import {
+  activeProjectId,
+  orderProjectsByActivity,
+  projectSessions,
+  projectStatus,
+  runningSessionCount,
+} from '@shared/workspace'
 import { useFileDrop } from '../useFileDrop'
 import { ProjectRow } from './ProjectRow'
 
@@ -40,6 +46,16 @@ export function Rail(): React.JSX.Element {
   // The project owning the active session, so its row reads as current.
   const currentProjectId = activeProjectId(workspace)
 
+  // When auto-sort is on, projects with a running agent float to the top; manual
+  // order is still the within-tier tiebreaker (and the drag target). The drop
+  // index always maps back to the underlying ws.projects order, since that's
+  // what reorderProject mutates.
+  const displayed = workspace.settings.autoSortProjects
+    ? orderProjectsByActivity(workspace)
+    : workspace.projects
+  const manualIndexOf = (projectId: string): number =>
+    workspace.projects.findIndex((p) => p.id === projectId)
+
   // Folders dropped from Finder become projects. Row drop handlers
   // stopPropagation, so an internal reorder never reaches here.
   const { fileOver: folderOver, dropHandlers } = useFileDrop((paths) => {
@@ -73,13 +89,14 @@ export function Rail(): React.JSX.Element {
             No projects yet. Add a folder to start.
           </p>
         ) : (
-          workspace.projects.map((project, index) => (
+          displayed.map((project) => (
             <ProjectRow
               key={project.id}
               project={project}
-              index={index}
+              index={manualIndexOf(project.id)}
               sessions={projectSessions(workspace, project.id)}
               status={projectStatus(workspace, project.id)}
+              runningCount={runningSessionCount(workspace, project.id)}
               active={project.id === currentProjectId}
               activeSessionId={workspace.activeSessionId}
               onToggleCollapse={() => collapse(project.id)}

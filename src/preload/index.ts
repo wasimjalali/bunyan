@@ -7,9 +7,11 @@ import type {
   SessionWriteRequest,
   SessionResizeRequest,
   SessionKillRequest,
+  SessionAckRequest,
   GitBranchRequest,
   GitBranchResult,
   OpenedProject,
+  OpenInEditorRequest,
   SessionDataEvent,
   SessionStatusEvent,
   SessionExitEvent,
@@ -34,6 +36,7 @@ const api: BunyanApi = {
     write: (req: SessionWriteRequest): void => ipcRenderer.send(IPC.sessionWrite, req),
     resize: (req: SessionResizeRequest): void => ipcRenderer.send(IPC.sessionResize, req),
     kill: (req: SessionKillRequest): Promise<void> => ipcRenderer.invoke(IPC.sessionKill, req),
+    ack: (req: SessionAckRequest): void => ipcRenderer.send(IPC.sessionAck, req),
     onData: (cb: (e: SessionDataEvent) => void): Unsubscribe =>
       subscribe(IPC.sessionData, cb),
     onStatus: (cb: (e: SessionStatusEvent) => void): Unsubscribe =>
@@ -57,6 +60,8 @@ const api: BunyanApi = {
       ipcRenderer.send(IPC.appActiveSession, sessionId),
     setNotifyPrefs: (prefs: NotifyPrefs): void => ipcRenderer.send(IPC.appNotifyPrefs, prefs),
     pathForFile: (file: File): string => webUtils.getPathForFile(file),
+    openInEditor: (req: OpenInEditorRequest): Promise<void> =>
+      ipcRenderer.invoke(IPC.appOpenInEditor, req),
     onFocusRequest: (cb: (e: FocusRequestEvent) => void): Unsubscribe =>
       subscribe(IPC.appFocusRequest, cb),
   },

@@ -1,6 +1,15 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
-import type { BellMode, CursorStyle, ThemeChoice } from '@shared/types'
+import { makeId } from '@shared/id'
+import { EDITOR_CHOICES } from '@shared/types'
+import type { BellMode, CursorStyle, EditorChoice, Snippet, ThemeChoice } from '@shared/types'
+
+const EDITOR_LABELS: Record<EditorChoice, string> = {
+  vscode: 'VS Code',
+  cursor: 'Cursor',
+  zed: 'Zed',
+  windsurf: 'Windsurf',
+}
 
 /** In-app settings (not a separate window), per spec 10.5. Live, no restart. */
 export function SettingsPanel(): React.JSX.Element | null {
@@ -104,6 +113,28 @@ export function SettingsPanel(): React.JSX.Element | null {
             <Toggle on={settings.notifications} onChange={(notifications) => update({ notifications })} />
           </Row>
 
+          <Row
+            label="Auto-sort projects"
+            caption="Bring projects with running sessions to the top"
+          >
+            <Toggle
+              on={settings.autoSortProjects}
+              onChange={(autoSortProjects) => update({ autoSortProjects })}
+            />
+          </Row>
+
+          <Row label="Silence alert" caption="Notify when a working session goes quiet">
+            <input
+              type="number"
+              min={0}
+              max={3600}
+              value={settings.silenceAlertSeconds}
+              onChange={(e) => update({ silenceAlertSeconds: clampSilence(Number(e.target.value)) })}
+              title="Seconds (0 disables)"
+              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none focus:border-gold"
+            />
+          </Row>
+
           <Row label="Relaunch Claude on restore">
             <Toggle
               on={settings.claudeAutoRelaunch}
@@ -119,8 +150,94 @@ export function SettingsPanel(): React.JSX.Element | null {
               className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
             />
           </Row>
+
+          <Row label="Open files in">
+            <Select<EditorChoice>
+              value={settings.editor}
+              options={EDITOR_CHOICES.map((id) => [id, EDITOR_LABELS[id]])}
+              onChange={(editor) => update({ editor })}
+            />
+          </Row>
+
+          <Row
+            label="Confirm multiline paste"
+            caption="Ask before pasting multiple lines into a shell without bracketed paste"
+          >
+            <Toggle on={settings.pasteWarning} onChange={(pasteWarning) => update({ pasteWarning })} />
+          </Row>
+
+          <Row label="Option key sends Meta" caption="Enables Option plus arrow and readline word shortcuts">
+            <Toggle on={settings.optionAsMeta} onChange={(optionAsMeta) => update({ optionAsMeta })} />
+          </Row>
+
+          <Snippets
+            snippets={settings.snippets}
+            onChange={(snippets) => update({ snippets })}
+          />
         </div>
       </div>
+    </div>
+  )
+}
+
+function Snippets(props: {
+  snippets: Snippet[]
+  onChange: (snippets: Snippet[]) => void
+}): React.JSX.Element {
+  const [name, setName] = useState('')
+  const [text, setText] = useState('')
+
+  const add = (): void => {
+    if (name.trim() === '' || text.trim() === '') return
+    props.onChange([...props.snippets, { id: makeId('snip'), name: name.trim(), text }])
+    setName('')
+    setText('')
+  }
+
+  const remove = (id: string): void => {
+    props.onChange(props.snippets.filter((s) => s.id !== id))
+  }
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <span className="text-sm text-ink-dim">Snippets</span>
+      {props.snippets.length > 0 && (
+        <ul className="flex flex-col gap-1">
+          {props.snippets.map((s) => (
+            <li key={s.id} className="flex items-center gap-2 rounded-md bg-canvas px-2 py-1">
+              <span className="text-sm text-ink">{s.name}</span>
+              <span className="flex-1 truncate text-xs text-ink-dim">{s.text.slice(0, 40)}</span>
+              <button
+                onClick={() => remove(s.id)}
+                aria-label={`Remove ${s.name}`}
+                className="flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-line hover:text-ink"
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Snippet name"
+        className="rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+      />
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={3}
+        placeholder="Prompt text"
+        className="resize-none rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+      />
+      <button
+        onClick={add}
+        disabled={name.trim() === '' || text.trim() === ''}
+        className="self-start rounded-md bg-gold px-3 py-1.5 text-sm font-medium text-deep-navy hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        Add snippet
+      </button>
     </div>
   )
 }
@@ -130,10 +247,22 @@ function clampSize(n: number): number {
   return Math.min(28, Math.max(9, Math.round(n)))
 }
 
-function Row(props: { label: string; children: React.ReactNode }): React.JSX.Element {
+function clampSilence(n: number): number {
+  if (Number.isNaN(n)) return 0
+  return Math.min(3600, Math.max(0, Math.round(n)))
+}
+
+function Row(props: {
+  label: string
+  caption?: string
+  children: React.ReactNode
+}): React.JSX.Element {
   return (
     <div className="flex items-center justify-between gap-4">
-      <span className="text-sm text-ink-dim">{props.label}</span>
+      <div className="flex flex-col">
+        <span className="text-sm text-ink-dim">{props.label}</span>
+        {props.caption && <span className="text-xs text-ink-dim/70">{props.caption}</span>}
+      </div>
       {props.children}
     </div>
   )

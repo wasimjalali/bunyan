@@ -81,4 +81,20 @@ describe('analyzeChunk', () => {
   it('does not see output in a pure title sequence', () => {
     expect(analyzeChunk(fixtures.titleNormal).hasOutput).toBe(false)
   })
+  it('extracts an OSC 9 notification message', () => {
+    const s = analyzeChunk('\x1b]9;Claude needs your approval\x07')
+    expect(s.oscNotification).toEqual({ title: null, body: 'Claude needs your approval' })
+  })
+  it('extracts OSC 777 notify with title and body, ST terminator', () => {
+    const s = analyzeChunk('\x1b]777;notify;Build done;3 tests failed\x1b\\')
+    expect(s.oscNotification).toEqual({ title: 'Build done', body: '3 tests failed' })
+  })
+  it('ignores other OSC 777 subcommands and caps message length', () => {
+    expect(analyzeChunk('\x1b]777;other;x\x07').oscNotification).toBeUndefined()
+    const long = 'x'.repeat(300)
+    expect(analyzeChunk(`\x1b]9;${long}\x07`).oscNotification).toEqual({
+      title: null,
+      body: 'x'.repeat(200),
+    })
+  })
 })

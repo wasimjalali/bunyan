@@ -4,8 +4,10 @@ import {
   validateWrite,
   validateResize,
   validateKill,
+  validateAck,
   validateGitBranch,
   validateNotifyPrefs,
+  validateOpenInEditor,
 } from './ipc-validate'
 
 const goodCreate = {
@@ -57,6 +59,14 @@ describe('ipc-validate', () => {
     expect(() => validateKill({})).toThrow()
   })
 
+  it('validates a flow-control ack, bounding the char count', () => {
+    expect(validateAck({ paneId: 'p1', chars: 4096 }).chars).toBe(4096)
+    expect(() => validateAck({ paneId: 'p1', chars: 0 })).toThrow()
+    expect(() => validateAck({ paneId: 'p1', chars: 1.5 })).toThrow()
+    expect(() => validateAck({ paneId: 'p1', chars: 20_000_000 })).toThrow()
+    expect(() => validateAck({ paneId: '', chars: 1 })).toThrow()
+  })
+
   it('validates a git branch request', () => {
     expect(validateGitBranch({ path: '/repo' }).path).toBe('/repo')
     expect(() => validateGitBranch({})).toThrow()
@@ -68,12 +78,49 @@ describe('ipc-validate', () => {
   })
 
   it('validates notification preferences', () => {
-    expect(validateNotifyPrefs({ notifications: true, bell: 'sound' })).toEqual({
+    expect(
+      validateNotifyPrefs({ notifications: true, bell: 'sound', silenceAlertSeconds: 30 }),
+    ).toEqual({
       notifications: true,
       bell: 'sound',
+      silenceAlertSeconds: 30,
     })
-    expect(validateNotifyPrefs({ notifications: false, bell: 'off' }).bell).toBe('off')
-    expect(() => validateNotifyPrefs({ notifications: 'yes', bell: 'off' })).toThrow()
-    expect(() => validateNotifyPrefs({ notifications: true, bell: 'kaboom' })).toThrow()
+    expect(
+      validateNotifyPrefs({ notifications: false, bell: 'off', silenceAlertSeconds: 0 }).bell,
+    ).toBe('off')
+    expect(() =>
+      validateNotifyPrefs({ notifications: 'yes', bell: 'off', silenceAlertSeconds: 0 }),
+    ).toThrow()
+    expect(() =>
+      validateNotifyPrefs({ notifications: true, bell: 'kaboom', silenceAlertSeconds: 0 }),
+    ).toThrow()
+    // silenceAlertSeconds must be a non-negative integer within range.
+    expect(() =>
+      validateNotifyPrefs({ notifications: true, bell: 'off', silenceAlertSeconds: -1 }),
+    ).toThrow()
+  })
+
+  it('validates an open-in-editor request', () => {
+    expect(
+      validateOpenInEditor({ path: '/Users/x/a.ts', line: 12, col: 3, editor: 'vscode' }),
+    ).toEqual({ path: '/Users/x/a.ts', line: 12, col: 3, editor: 'vscode' })
+    // line/col are optional.
+    expect(validateOpenInEditor({ path: '/a.ts', editor: 'zed' })).toEqual({
+      path: '/a.ts',
+      line: undefined,
+      col: undefined,
+      editor: 'zed',
+    })
+  })
+
+  it('rejects a bad open-in-editor request', () => {
+    expect(() => validateOpenInEditor({ path: '', editor: 'vscode' })).toThrow()
+    expect(() => validateOpenInEditor({ path: 'relative/a.ts', editor: 'vscode' })).toThrow()
+    expect(() => validateOpenInEditor({ path: '/a\0b.ts', editor: 'vscode' })).toThrow()
+    expect(() => validateOpenInEditor({ path: '/a.ts', editor: 'vim' })).toThrow()
+    expect(() => validateOpenInEditor({ path: '/a.ts', line: 0, editor: 'vscode' })).toThrow()
+    expect(() =>
+      validateOpenInEditor({ path: '/a.ts', line: 2_000_000, editor: 'vscode' }),
+    ).toThrow()
   })
 })

@@ -72,19 +72,26 @@ export function closePane(node: PaneNode, paneId: string): PaneNode | null {
   return { ...node, a, b }
 }
 
-/** Set the split ratio for the split node that directly owns `aPaneId` on its a-side path. */
-export function setRatio(node: PaneNode, splitMatchesAId: string, ratio: number): PaneNode {
+/**
+ * Set the ratio of the split addressed by `path` (a sequence of 'a'/'b' steps
+ * from the root). An empty path targets THIS split. Addressing by path (not by
+ * a-side leaf id) is what lets a nested a-side split move independently of its
+ * parent, which share the same first leaf. Descending into a leaf or running out
+ * of tree returns the node unchanged.
+ */
+export function setRatioAtPath(node: PaneNode, path: Array<'a' | 'b'>, ratio: number): PaneNode {
   if (node.type === 'leaf') return node
-  // A split is identified by the first leaf id on its a-side (stable within a tree).
-  const aFirst = listPanes(node.a)[0]
-  if (aFirst && aFirst.id === splitMatchesAId) {
-    return { ...node, ratio: clampRatio(ratio) }
+  if (path.length === 0) return { ...node, ratio: clampRatio(ratio) }
+  const [step, ...rest] = path
+  // Recurse only into the addressed side. Return the node unchanged (same
+  // reference) when the descent hit a leaf or ran out of tree, so an invalid
+  // path is a no-op.
+  if (step === 'a') {
+    const a = setRatioAtPath(node.a, rest, ratio)
+    return a === node.a ? node : { ...node, a }
   }
-  return {
-    ...node,
-    a: setRatio(node.a, splitMatchesAId, ratio),
-    b: setRatio(node.b, splitMatchesAId, ratio),
-  }
+  const b = setRatioAtPath(node.b, rest, ratio)
+  return b === node.b ? node : { ...node, b }
 }
 
 function clampRatio(r: number): number {

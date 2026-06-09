@@ -8,10 +8,13 @@ import type {
   SessionWriteRequest,
   SessionResizeRequest,
   SessionKillRequest,
+  SessionAckRequest,
   GitBranchRequest,
+  OpenInEditorRequest,
   NotifyPrefs,
 } from '@shared/ipc'
-import type { BellMode, SessionKind } from '@shared/types'
+import { EDITOR_CHOICES } from '@shared/types'
+import type { BellMode, EditorChoice, SessionKind } from '@shared/types'
 
 class ValidationError extends Error {}
 
@@ -88,9 +91,38 @@ export function validateKill(raw: unknown): SessionKillRequest {
   return { paneId: id(o.paneId, 'paneId') }
 }
 
+export function validateAck(raw: unknown): SessionAckRequest {
+  const o = asObject(raw)
+  return {
+    paneId: id(o.paneId, 'paneId'),
+    // A finite positive integer of chars drained. The upper bound is generous
+    // (16M) but finite so a malformed ack can't poison the watermark accounting.
+    chars: dim(o.chars, 'chars', 1, 16_000_000),
+  }
+}
+
 export function validateGitBranch(raw: unknown): GitBranchRequest {
   const o = asObject(raw)
   return { path: str(o.path, 'path') }
+}
+
+export function validateOpenInEditor(raw: unknown): OpenInEditorRequest {
+  const o = asObject(raw)
+  const path = str(o.path, 'path')
+  if (path.length === 0) fail('path must not be empty')
+  // NUL bytes can truncate a path when it crosses into native APIs; reject them.
+  if (path.includes('\0')) fail('path must not contain NUL')
+  // Only absolute paths are openable. The renderer joins relatives against the
+  // pane cwd and the main handler expands a leading "~" before calling this.
+  if (!path.startsWith('/')) fail('path must be absolute')
+  const editor = str(o.editor, 'editor', 16) as EditorChoice
+  if (!EDITOR_CHOICES.includes(editor)) fail('editor is not a valid choice')
+  return {
+    path,
+    line: o.line === undefined ? undefined : dim(o.line, 'line', 1, 1_000_000),
+    col: o.col === undefined ? undefined : dim(o.col, 'col', 1, 1_000_000),
+    editor,
+  }
 }
 
 const BELL_MODES: readonly BellMode[] = ['status-only', 'sound', 'off']
@@ -99,7 +131,9 @@ export function validateNotifyPrefs(raw: unknown): NotifyPrefs {
   if (typeof o.notifications !== 'boolean') fail('notifications must be a boolean')
   const bell = str(o.bell, 'bell', 16) as BellMode
   if (!BELL_MODES.includes(bell)) fail('bell is not a valid mode')
-  return { notifications: o.notifications, bell }
+  // 0 disables; cap at 1 hour so a fat-fingered value can't park a timer forever.
+  const silenceAlertSeconds = dim(o.silenceAlertSeconds, 'silenceAlertSeconds', 0, 3600)
+  return { notifications: o.notifications, bell, silenceAlertSeconds }
 }
 
 function asObject(raw: unknown): Record<string, unknown> {

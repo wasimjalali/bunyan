@@ -17,4 +17,10 @@ export interface TransitionCtx {
   focused: boolean
 }
 
+/** An agent- or shell-authored notification parsed from OSC 9 / OSC 777. */
+export interface OscNotification {
+  title: string | null
+  body: string
+}
+
 export type { SessionStatus }
