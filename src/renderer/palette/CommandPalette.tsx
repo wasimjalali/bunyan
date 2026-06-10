@@ -54,6 +54,7 @@ export function CommandPalette(): React.JSX.Element | null {
         startBroadcast,
         stopBroadcast,
         broadcasting,
+        moveSidebar: (railSide) => updateSettings({ railSide }),
         pasteSnippet,
         close: () => setPalette(false),
       }),
@@ -184,6 +185,7 @@ interface CommandDeps {
   startBroadcast: () => void
   stopBroadcast: () => void
   broadcasting: boolean
+  moveSidebar: (side: 'left' | 'right') => void
   pasteSnippet: (text: string) => void
   close: () => void
 }
@@ -226,6 +228,12 @@ function buildCommands(ws: Workspace, deps: CommandDeps): Command[] {
   }
   commands.push({ id: 'act:open', title: 'Open project', hint: '⌘O', run: deps.openProject })
   commands.push({ id: 'act:theme', title: 'Toggle theme', run: deps.toggleTheme })
+  const nextSide = ws.settings.railSide === 'right' ? 'left' : 'right'
+  commands.push({
+    id: 'act:sidebar-side',
+    title: `Move sidebar to the ${nextSide}`,
+    run: () => deps.moveSidebar(nextSide),
+  })
   commands.push({ id: 'act:settings', title: 'Settings', hint: '⌘,', run: deps.openSettings })
   commands.push(
     deps.broadcasting

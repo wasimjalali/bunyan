@@ -69,6 +69,17 @@ export function App(): React.JSX.Element {
     ? (workspace.projects.find((p) => p.id === activeSession.projectId) ?? null)
     : null
 
+  // The rail and its resize handle are the same elements whichever side they
+  // dock to; only their order around <main> flips. Rendering one branch at a
+  // time means each node mounts once, so the rail never remounts on a side swap.
+  const railSide = settings.railSide
+  const railEl = (
+    <div style={{ width: railWidth }} className="shrink-0">
+      <Rail />
+    </div>
+  )
+  const dividerEl = <RailDivider width={railWidth} side={railSide} onResize={setRailWidth} />
+
   return (
     <div className="flex h-full flex-col bg-canvas text-ink">
       <TitleBar
@@ -79,6 +90,12 @@ export function App(): React.JSX.Element {
         onToggleTheme={() => updateSettings({ theme: theme.mode === 'dark' ? 'light' : 'dark' })}
       />
       <div className="flex min-h-0 flex-1">
+        {railVisible && railSide === 'left' && (
+          <>
+            {railEl}
+            {dividerEl}
+          </>
+        )}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col">
           {broadcastSessionIds && (
             <BroadcastBanner count={broadcastSessionIds.length} onStop={stopBroadcast} />
@@ -129,12 +146,10 @@ export function App(): React.JSX.Element {
           </div>
         </main>
 
-        {railVisible && (
+        {railVisible && railSide === 'right' && (
           <>
-            <RailDivider width={railWidth} onResize={setRailWidth} />
-            <div style={{ width: railWidth }} className="shrink-0">
-              <Rail />
-            </div>
+            {dividerEl}
+            {railEl}
           </>
         )}
       </div>
@@ -399,9 +414,11 @@ function EmptyState({
 
 function RailDivider({
   width,
+  side,
   onResize,
 }: {
   width: number
+  side: 'left' | 'right'
   onResize: (w: number) => void
 }): React.JSX.Element {
   const dragging = useRef(false)
@@ -410,7 +427,10 @@ function RailDivider({
   useEffect(() => {
     const onMove = (e: MouseEvent): void => {
       if (!dragging.current) return
-      onResize(clamp(window.innerWidth - e.clientX))
+      // The handle sits on the rail's inner edge. Docked right, the rail width is
+      // the gap from the cursor to the right edge; docked left, it's the cursor's
+      // distance from the left edge.
+      onResize(clamp(side === 'right' ? window.innerWidth - e.clientX : e.clientX))
     }
     const onUp = (): void => {
       dragging.current = false
@@ -424,7 +444,7 @@ function RailDivider({
       // If we unmount mid-drag, don't leave the resize cursor stuck.
       document.body.style.cursor = ''
     }
-  }, [onResize])
+  }, [onResize, side])
 
   return (
     <div
@@ -441,12 +461,14 @@ function RailDivider({
       }}
       onKeyDown={(e) => {
         const step = e.shiftKey ? 24 : 8
-        // Arrow keys widen/narrow the rail (the rail sits on the right, so
-        // ArrowLeft widens it).
-        if (e.key === 'ArrowLeft') {
+        // Arrow keys grow the rail toward its own side: docked right, ArrowLeft
+        // widens; docked left, ArrowRight widens.
+        const grow = side === 'right' ? 'ArrowLeft' : 'ArrowRight'
+        const shrink = side === 'right' ? 'ArrowRight' : 'ArrowLeft'
+        if (e.key === grow) {
           e.preventDefault()
           onResize(clamp(width + step))
-        } else if (e.key === 'ArrowRight') {
+        } else if (e.key === shrink) {
           e.preventDefault()
           onResize(clamp(width - step))
         }

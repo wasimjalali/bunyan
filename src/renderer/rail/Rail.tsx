@@ -8,6 +8,7 @@ import {
 } from '@shared/workspace'
 import { useFileDrop } from '../useFileDrop'
 import { ProjectRow } from './ProjectRow'
+import { StatusDot } from './StatusDot'
 
 export function Rail(): React.JSX.Element {
   const workspace = useStore((s) => s.workspace)
@@ -22,6 +23,9 @@ export function Rail(): React.JSX.Element {
   const focusSession = useStore((s) => s.focusSession)
   const reorderProject = useStore((s) => s.reorderProject)
   const reorderSession = useStore((s) => s.reorderSession)
+  const updateSettings = useStore((s) => s.updateSettings)
+
+  const railSide = workspace.settings.railSide
 
   const handleCloseProject = (projectId: string): void => {
     const project = workspace.projects.find((p) => p.id === projectId)
@@ -56,6 +60,25 @@ export function Rail(): React.JSX.Element {
   const manualIndexOf = (projectId: string): number =>
     workspace.projects.findIndex((p) => p.id === projectId)
 
+  // Flatten sessions in the order the rail shows them, so the footer's attention
+  // jumper walks them the way the eye reads them. Running several agents at once
+  // is the whole point of Bunyan, so the footer answers "is anything waiting on
+  // me?" at a glance and jumps to the next one with a click.
+  const orderedSessions = displayed.flatMap((p) => projectSessions(workspace, p.id))
+  const needsInput = orderedSessions.filter((s) => s.status === 'needs-input')
+  const workingCount = orderedSessions.filter((s) => s.status === 'working').length
+
+  const jumpToNextWaiting = (): void => {
+    if (needsInput.length === 0) return
+    const active = needsInput.findIndex((s) => s.id === workspace.activeSessionId)
+    const next = needsInput[(active + 1) % needsInput.length]
+    if (next) focusSession(next.id)
+  }
+
+  const oppositeSide = railSide === 'right' ? 'left' : 'right'
+  const moveSidebarLabel = `Move sidebar to the ${oppositeSide}`
+  const toggleSide = (): void => updateSettings({ railSide: oppositeSide })
+
   // Folders dropped from Finder become projects. Row drop handlers
   // stopPropagation, so an internal reorder never reaches here.
   const { fileOver: folderOver, dropHandlers } = useFileDrop((paths) => {
@@ -65,7 +88,9 @@ export function Rail(): React.JSX.Element {
   return (
     <aside
       className={[
-        'rail-depth flex h-full flex-col border-l border-line bg-canvas',
+        'rail-depth flex h-full flex-col border-line bg-canvas',
+        // The hairline sits on whichever edge faces the terminal.
+        railSide === 'left' ? 'border-r' : 'border-l',
         folderOver ? 'ring-2 ring-inset ring-gold' : '',
       ].join(' ')}
       {...dropHandlers}
@@ -116,6 +141,48 @@ export function Rail(): React.JSX.Element {
           ))
         )}
       </div>
+
+      <footer className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-line px-2">
+        <button
+          onClick={toggleSide}
+          title={moveSidebarLabel}
+          aria-label={moveSidebarLabel}
+          className="row-smooth flex h-6 w-6 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
+        >
+          <DockChevron point={oppositeSide} />
+        </button>
+
+        {needsInput.length > 0 ? (
+          <button
+            onClick={jumpToNextWaiting}
+            title="Jump to the next session that needs input"
+            className="row-smooth flex items-center gap-1.5 rounded-md bg-gold/15 px-2 py-1 text-xs font-medium text-gold hover:bg-gold/25"
+          >
+            <StatusDot status="needs-input" />
+            {needsInput.length} {needsInput.length === 1 ? 'needs' : 'need'} input
+          </button>
+        ) : workingCount > 0 ? (
+          <span className="flex items-center gap-1.5 px-1 text-xs text-ink-dim">
+            <StatusDot status="working" />
+            {workingCount} running
+          </span>
+        ) : null}
+      </footer>
     </aside>
+  )
+}
+
+/** A crisp chevron whose face points to the side the rail will move to. */
+function DockChevron({ point }: { point: 'left' | 'right' }): React.JSX.Element {
+  return (
+    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d={point === 'left' ? 'M10 4 L6 8 L10 12' : 'M6 4 L10 8 L6 12'}
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }

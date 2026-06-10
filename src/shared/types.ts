@@ -62,6 +62,8 @@ export interface Settings {
   silenceAlertSeconds: number
   /** Float projects with a running session to the top of the rail. */
   autoSortProjects: boolean
+  /** Which side of the window the rail (sidebar) docks to. */
+  railSide: 'left' | 'right'
   claudeAutoRelaunch: boolean
   defaultShell: string // resolved from $SHELL by default
   /** Which editor clickable file:line links open in. */
@@ -116,6 +118,7 @@ export const DEFAULT_SETTINGS: Settings = {
   notifications: true,
   silenceAlertSeconds: 0,
   autoSortProjects: true,
+  railSide: 'right',
   claudeAutoRelaunch: true,
   defaultShell: '',
   editor: 'vscode',

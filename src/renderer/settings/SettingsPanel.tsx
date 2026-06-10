@@ -123,6 +123,17 @@ export function SettingsPanel(): React.JSX.Element | null {
             />
           </Row>
 
+          <Row label="Sidebar side" caption="Which side the projects rail docks to">
+            <Select<'left' | 'right'>
+              value={settings.railSide}
+              options={[
+                ['right', 'Right'],
+                ['left', 'Left'],
+              ]}
+              onChange={(railSide) => update({ railSide })}
+            />
+          </Row>
+
           <Row label="Silence alert" caption="Notify when a working session goes quiet">
             <input
               type="number"
