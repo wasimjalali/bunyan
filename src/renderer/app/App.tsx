@@ -122,6 +122,7 @@ export function App(): React.JSX.Element {
               <EmptyState
                 hasProjects={workspace.projects.length > 0}
                 onOpenProject={() => void openProject()}
+                themeMode={theme.mode}
               />
             )}
             <SearchBar />
@@ -327,7 +328,7 @@ function TitleBar({
   return (
     <header className="title-hairline drag-region flex h-9 shrink-0 items-center border-b border-line pl-20 pr-3">
       <div className="flex items-center gap-2">
-        <BunyanMark size={16} />
+        <BunyanMark size={16} theme={themeMode} />
         <span className="font-[family-name:var(--font-wordmark)] text-sm font-semibold">Bunyan</span>
       </div>
       {breadcrumb && (
@@ -372,13 +373,15 @@ function BroadcastBanner({
 function EmptyState({
   hasProjects,
   onOpenProject,
+  themeMode,
 }: {
   hasProjects: boolean
   onOpenProject: () => void
+  themeMode: 'dark' | 'light'
 }): React.JSX.Element {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-5 text-center">
-      <BunyanMark size={72} />
+      <BunyanMark size={72} theme={themeMode} />
       <p className="font-[family-name:var(--font-wordmark)] text-lg text-ink">
         {hasProjects ? 'Start a session to begin' : 'Open a folder to start'}
       </p>

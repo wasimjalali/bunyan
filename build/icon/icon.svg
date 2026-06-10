@@ -1,99 +1,57 @@
 <svg width="1024" height="1024" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
   <!--
-    Bunyan app icon: a thin 3D gold crescent on a cream tile, with a navy code
-    badge (the </> glyph in gold) nestled in the crescent's opening. The
-    crescent is a stack inside a soft drop shadow: a dark extrusion disc, the
-    gold body with a specular sweep, and a bright rim light, all clipped to a
-    crescent mask (outer disc minus an offset disc). The artwork is centred in
-    the tile with even padding. The macOS .icns set is generated from this SVG.
+    Bunyan app icon: one rounded 3D tile holding a single glyph, crescent / crescent.
+    The two angle brackets of the old </> code glyph are replaced by gold crescent
+    moons cradling a gold slash (each moon opening toward it), fusing the brand
+    crescent into the code slash. Hero variant: a deep-navy tile with the gold glyph.
+    Each crescent is an outer disc minus an offset cut disc (a mask), which gives the
+    moon its cusps. The glyph is scaled to 0.74 around the centre for even padding.
+    Matches src/renderer/app/BunyanMark.tsx (theme="light" treatment). The macOS
+    .icns set is generated from this SVG.
   -->
   <defs>
-    <linearGradient id="cream" x1="0" y1="2" x2="0" y2="62" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FCF6E6" />
-      <stop offset="0.5" stop-color="#F4E8CE" />
-      <stop offset="1" stop-color="#E6D2A8" />
+    <linearGradient id="navy" x1="0" y1="2" x2="0" y2="62" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#244873" />
+      <stop offset="0.5" stop-color="#16304D" />
+      <stop offset="1" stop-color="#0C1929" />
     </linearGradient>
-    <linearGradient id="creamSheen" x1="0" y1="2" x2="0" y2="36" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.75" />
+    <linearGradient id="navySheen" x1="0" y1="2" x2="0" y2="34" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.18" />
       <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
     </linearGradient>
-    <linearGradient id="creamBottom" x1="0" y1="32" x2="0" y2="62" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#8A6A2C" stop-opacity="0" />
-      <stop offset="1" stop-color="#7E5E22" stop-opacity="0.22" />
-    </linearGradient>
-
-    <linearGradient id="gold" x1="8" y1="10" x2="42" y2="56" gradientUnits="userSpaceOnUse">
+    <linearGradient id="gold" x1="10" y1="14" x2="52" y2="50" gradientUnits="userSpaceOnUse">
       <stop offset="0" stop-color="#FFF4CE" />
       <stop offset="0.4" stop-color="#EBC061" />
       <stop offset="0.75" stop-color="#C7972F" />
       <stop offset="1" stop-color="#946417" />
     </linearGradient>
-    <radialGradient id="goldSpec" cx="0.32" cy="0.24" r="0.55">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.95" />
-      <stop offset="0.5" stop-color="#FFFFFF" stop-opacity="0.18" />
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
-    </radialGradient>
-
-    <linearGradient id="navy" x1="0" y1="20" x2="0" y2="48" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#2E548A" />
-      <stop offset="0.5" stop-color="#1C3C68" />
-      <stop offset="1" stop-color="#102843" />
-    </linearGradient>
-    <linearGradient id="navySheen" x1="0" y1="20" x2="0" y2="34" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFFFFF" stop-opacity="0.30" />
-      <stop offset="1" stop-color="#FFFFFF" stop-opacity="0" />
-    </linearGradient>
-    <linearGradient id="glyph" x1="0" y1="22" x2="0" y2="44" gradientUnits="userSpaceOnUse">
-      <stop offset="0" stop-color="#FFF1C4" />
-      <stop offset="1" stop-color="#E0B255" />
-    </linearGradient>
 
     <filter id="tileDrop" x="-25%" y="-25%" width="150%" height="160%">
-      <feDropShadow dx="0" dy="2.4" stdDeviation="2.2" flood-color="#000000" flood-opacity="0.4" />
-    </filter>
-    <filter id="cresDrop" x="-50%" y="-50%" width="200%" height="220%">
-      <feDropShadow dx="0" dy="2.6" stdDeviation="1.9" flood-color="#4A3408" flood-opacity="0.55" />
-    </filter>
-    <filter id="badgeDrop" x="-50%" y="-50%" width="200%" height="220%">
-      <feDropShadow dx="0" dy="2.2" stdDeviation="1.6" flood-color="#0A1626" flood-opacity="0.5" />
+      <feDropShadow dx="0" dy="2.2" stdDeviation="2" flood-color="#000000" flood-opacity="0.38" />
     </filter>
 
-    <mask id="cres">
-      <rect width="64" height="64" fill="black" />
-      <circle cx="27" cy="32" r="21" fill="white" />
-      <circle cx="34.5" cy="29.5" r="19.8" fill="black" />
+    <!-- Left moon "(": outer disc minus a disc offset to the right. -->
+    <mask id="cl" maskUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="64" height="64" fill="black" />
+      <circle cx="19" cy="32" r="13.5" fill="white" />
+      <circle cx="24.6" cy="32" r="12.4" fill="black" />
+    </mask>
+    <!-- Right moon ")": outer disc minus a disc offset to the left. -->
+    <mask id="cr" maskUnits="userSpaceOnUse">
+      <rect x="0" y="0" width="64" height="64" fill="black" />
+      <circle cx="45" cy="32" r="13.5" fill="white" />
+      <circle cx="39.4" cy="32" r="12.4" fill="black" />
     </mask>
   </defs>
 
-  <!-- Cream tile: body, top sheen, soft bottom darkening -->
-  <rect x="3" y="3" width="58" height="58" rx="15" fill="url(#cream)" filter="url(#tileDrop)" stroke="#DCC79A" stroke-width="0.75" />
-  <rect x="3" y="3" width="58" height="58" rx="15" fill="url(#creamSheen)" />
-  <rect x="3" y="3" width="58" height="58" rx="15" fill="url(#creamBottom)" />
+  <!-- Rounded navy tile: body, then a top sheen, inside a soft drop shadow -->
+  <rect x="3" y="3" width="58" height="58" rx="14.5" fill="url(#navy)" filter="url(#tileDrop)" stroke="#0C1F37" stroke-width="0.75" />
+  <rect x="3" y="3" width="58" height="58" rx="14.5" fill="url(#navySheen)" />
 
-  <!-- Artwork centred in the tile with even padding on all sides -->
-  <g transform="translate(32 32) scale(0.86) translate(-30 -32)">
-    <!-- Thin gold crescent: dark extrusion, gold body + specular, rim light -->
-    <g filter="url(#cresDrop)">
-      <circle cx="27" cy="33.3" r="21" fill="#7A5410" mask="url(#cres)" />
-      <g mask="url(#cres)">
-        <circle cx="27" cy="32" r="21" fill="url(#gold)" />
-        <circle cx="27" cy="32" r="21" fill="url(#goldSpec)" />
-      </g>
-      <circle cx="27" cy="32" r="20.4" fill="none" stroke="#FFF7DB" stroke-width="0.9" stroke-opacity="0.85" mask="url(#cres)" />
-    </g>
-
-    <!-- Navy code badge in the crescent opening: body, sheen, inner rim -->
-    <g filter="url(#badgeDrop)">
-      <rect x="31" y="21" width="23" height="23" rx="7" fill="url(#navy)" stroke="#0C1F37" stroke-width="0.6" />
-    </g>
-    <rect x="31.6" y="21.6" width="21.8" height="13" rx="6" fill="url(#navySheen)" />
-    <rect x="31.6" y="21.6" width="21.8" height="21.8" rx="6.4" fill="none" stroke="#5E83B8" stroke-opacity="0.45" stroke-width="0.7" />
-
-    <!-- The </> glyph in gold -->
-    <g stroke="url(#glyph)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" fill="none">
-      <path d="M39 28 L35 32.5 L39 37" />
-      <path d="M46 28 L50 32.5 L46 37" />
-    </g>
-    <path d="M44 26.5 L41 38.5" stroke="url(#glyph)" stroke-width="2.1" stroke-linecap="round" />
+  <!-- Glyph scaled to 0.74 around the tile centre for even padding on every edge -->
+  <g transform="translate(32 32) scale(0.74) translate(-32 -32)">
+    <circle cx="19" cy="32" r="13.5" fill="url(#gold)" mask="url(#cl)" />
+    <circle cx="45" cy="32" r="13.5" fill="url(#gold)" mask="url(#cr)" />
+    <path d="M27.6 45 L36.4 19" stroke="url(#gold)" stroke-width="3.7" stroke-linecap="round" fill="none" />
   </g>
 </svg>
