@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import type { Workspace } from '@shared/types'
+import { isAbsoluteOrTildePath } from '@shared/ipc'
 import { useStore } from '../state/store'
 import { startPersistence } from '../state/persistence'
 import { listPanes } from '@shared/pane-tree'
 import {
   activeOrFirstProjectId,
-  orderProjectsByActivity,
+  displayedProjects,
   sessionByIndexIn,
   sessionByOffsetIn,
 } from '@shared/workspace'
@@ -86,6 +87,7 @@ export function App(): React.JSX.Element {
         breadcrumb={
           activeProject && activeSession ? `${activeProject.name} / ${activeSession.title}` : null
         }
+        branch={activeProject?.branch ?? null}
         themeMode={theme.mode}
         onToggleTheme={() => updateSettings({ theme: theme.mode === 'dark' ? 'light' : 'dark' })}
       />
@@ -121,6 +123,9 @@ export function App(): React.JSX.Element {
                       session={session}
                       projectName={project?.name ?? ''}
                       shell={settings.defaultShell}
+                      claudeConfigDir={
+                        project ? configDirFor(settings, project.section) : undefined
+                      }
                       focusedPaneId={isActive ? focusedPaneId : null}
                       restoreNotes={restoreNotes}
                       theme={theme.xterm}
@@ -158,6 +163,20 @@ export function App(): React.JSX.Element {
       <SettingsPanel />
     </div>
   )
+}
+
+/**
+ * The Claude config dir for a section, or undefined for the default account.
+ * Only well-formed paths (absolute or ~/) cross IPC; anything else would make
+ * the validator reject the whole session spawn over a settings typo.
+ */
+function configDirFor(
+  settings: Workspace['settings'],
+  section: 'professional' | 'personal',
+): string | undefined {
+  const dir = settings.claudeConfigDirs[section].trim()
+  if (dir === '') return undefined
+  return isAbsoluteOrTildePath(dir) ? dir : undefined
 }
 
 /** Subscribes to main-process streams: session status updates and focus requests. */
@@ -241,8 +260,8 @@ function useKeymap(): void {
       if (key !== 'k' && isEditableTarget(e.target)) return
 
       // Session navigation must follow what the eye sees: the rail's displayed
-      // order, which auto-sort reshuffles when the setting is on.
-      const displayed = ws.settings.autoSortProjects ? orderProjectsByActivity(ws) : ws.projects
+      // order (professional section, then personal, auto-sorted within each).
+      const displayed = displayedProjects(ws)
 
       // Digits 1..9 jump to a session by rail order.
       if (/^[1-9]$/.test(key)) {
@@ -333,10 +352,12 @@ function isEditableTarget(el: EventTarget | null): boolean {
 
 function TitleBar({
   breadcrumb,
+  branch,
   themeMode,
   onToggleTheme,
 }: {
   breadcrumb: string | null
+  branch: string | null
   themeMode: 'dark' | 'light'
   onToggleTheme: () => void
 }): React.JSX.Element {
@@ -353,6 +374,16 @@ function TitleBar({
             {breadcrumb}
           </span>
         </>
+      )}
+      {/* The active project's branch lives here, not in the rail rows, so a
+          long feature branch never crowds a project name. */}
+      {branch && (
+        <span
+          title={`Branch ${branch}`}
+          className="ml-2 max-w-56 shrink-0 truncate rounded bg-surface px-1.5 py-0.5 text-[11px] text-ink-dim"
+        >
+          {branch}
+        </span>
       )}
       <button
         onClick={onToggleTheme}

@@ -1,5 +1,4 @@
 import { ipcMain, shell, type BrowserWindow, type WebContents } from 'electron'
-import os from 'node:os'
 import { IPC } from '@shared/ipc'
 import type { SessionDataEvent, SessionExitEvent, SessionStatusEvent } from '@shared/ipc'
 import type { SessionStatus, Workspace } from '@shared/types'
@@ -7,6 +6,7 @@ import type { PtyManager } from './pty/PtyManager'
 import type { WorkspaceStore } from './store/WorkspaceStore'
 import type { SessionMonitor } from './monitor/SessionMonitor'
 import { isDirectory, openProjectDialog, readGitBranch, resolveProjectPath } from './project'
+import { expandTilde } from './paths'
 import {
   validateCreate,
   validateWrite,
@@ -41,6 +41,7 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
       cols: req.cols,
       rows: req.rows,
       runOnStart: req.runOnStart,
+      claudeConfigDir: req.claudeConfigDir,
     })
     return { paneId: req.paneId }
   })
@@ -118,9 +119,8 @@ function expandHome(raw: unknown): unknown {
   const o = raw as Record<string, unknown>
   const path = o.path
   if (typeof path !== 'string') return raw
-  if (path === '~') return { ...o, path: os.homedir() }
-  if (path.startsWith('~/')) return { ...o, path: os.homedir() + path.slice(1) }
-  return raw
+  const expanded = expandTilde(path)
+  return expanded === path ? raw : { ...o, path: expanded }
 }
 
 /** Workspace load/save. */

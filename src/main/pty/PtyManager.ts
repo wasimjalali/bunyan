@@ -4,6 +4,7 @@ import path from 'node:path'
 import process from 'node:process'
 import { FlowGate } from './flow-gate'
 import { resolveLocaleEnv } from './locale'
+import { expandTilde } from '../paths'
 
 export interface SpawnOptions {
   ptyId: string
@@ -13,6 +14,8 @@ export interface SpawnOptions {
   rows: number
   /** A command written to the shell once it has had a moment to initialise. */
   runOnStart?: string
+  /** CLAUDE_CONFIG_DIR for this shell (a per-section Claude account). */
+  claudeConfigDir?: string
 }
 
 // Give the login shell a beat to run its rc files before we type into it, so a
@@ -87,6 +90,9 @@ export class PtyManager {
       // No-op when the user/profile already set a locale. See locale.ts for why.
       ...this.localeEnv,
     }
+    // A per-section Claude account: point the claude CLI at its own config dir
+    // so professional and personal sessions hold separate logins.
+    if (opts.claudeConfigDir) env.CLAUDE_CONFIG_DIR = expandTilde(opts.claudeConfigDir)
 
     const args = loginArgs(shell)
     const gate = new FlowGate(FLOW_HIGH_WATER, FLOW_LOW_WATER)

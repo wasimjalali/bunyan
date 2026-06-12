@@ -153,6 +153,39 @@ export function SettingsPanel(): React.JSX.Element | null {
             />
           </Row>
 
+          <div className="flex flex-col gap-2 border-t border-line pt-3">
+            <span className="text-sm text-ink-dim">Claude accounts</span>
+            <p className="text-xs leading-relaxed text-ink-dim/70">
+              Give a section its own config folder to keep a separate Claude login, e.g.
+              ~/.claude-personal. Leave empty for your default account. New sessions pick
+              this up; run /login once in that section to sign in.
+            </p>
+            <Row label="Professional">
+              <input
+                value={settings.claudeConfigDirs.professional}
+                onChange={(e) =>
+                  update({
+                    claudeConfigDirs: { ...settings.claudeConfigDirs, professional: e.target.value },
+                  })
+                }
+                placeholder="Default (~/.claude)"
+                className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+              />
+            </Row>
+            <Row label="Personal">
+              <input
+                value={settings.claudeConfigDirs.personal}
+                onChange={(e) =>
+                  update({
+                    claudeConfigDirs: { ...settings.claudeConfigDirs, personal: e.target.value },
+                  })
+                }
+                placeholder="Default (~/.claude)"
+                className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+              />
+            </Row>
+          </div>
+
           <Row label="Default shell">
             <input
               value={settings.defaultShell}

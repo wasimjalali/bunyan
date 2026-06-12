@@ -48,6 +48,21 @@ describe('ipc-validate', () => {
     expect(() => validateCreate({ ...goodCreate, shell: 123 })).toThrow()
   })
 
+  it('accepts absolute and ~/ claudeConfigDir paths only', () => {
+    expect(
+      validateCreate({ ...goodCreate, claudeConfigDir: '/Users/me/.claude-personal' })
+        .claudeConfigDir,
+    ).toBe('/Users/me/.claude-personal')
+    expect(validateCreate({ ...goodCreate, claudeConfigDir: '~/.claude-work' }).claudeConfigDir).toBe(
+      '~/.claude-work',
+    )
+    expect(validateCreate(goodCreate).claudeConfigDir).toBeUndefined()
+    expect(() => validateCreate({ ...goodCreate, claudeConfigDir: 'relative/dir' })).toThrow()
+    expect(() => validateCreate({ ...goodCreate, claudeConfigDir: '/dir\nVAR=evil' })).toThrow()
+    expect(() => validateCreate({ ...goodCreate, claudeConfigDir: '/dir\0' })).toThrow()
+    expect(() => validateCreate({ ...goodCreate, claudeConfigDir: 42 })).toThrow()
+  })
+
   it('bounds the write payload size', () => {
     expect(validateWrite({ paneId: 'p1', data: 'hi' }).data).toBe('hi')
     expect(() => validateWrite({ paneId: 'p1', data: 'x'.repeat(2_000_000) })).toThrow()

@@ -9,6 +9,8 @@ interface SessionViewProps {
   projectName: string
   /** Preferred shell from settings; empty means the main process uses $SHELL. */
   shell: string
+  /** CLAUDE_CONFIG_DIR for this project's section; empty = the default account. */
+  claudeConfigDir?: string
   focusedPaneId: string | null
   restoreNotes: Record<string, string>
   theme: ITheme
@@ -66,6 +68,7 @@ function renderNode(
           projectName={props.projectName}
           shell={props.shell}
           runOnStart={runOnStart}
+          claudeConfigDir={props.claudeConfigDir}
           restoreNote={props.restoreNotes[node.pane.ptyId]}
           theme={props.theme}
           fontFamily={props.fontFamily}

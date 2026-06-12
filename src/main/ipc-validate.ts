@@ -2,7 +2,7 @@
 // runs its input through these before touching native resources. Failures throw
 // a generic Error; handlers translate that into a rejected invoke. See spec 7.2.
 
-import { LIMITS } from '@shared/ipc'
+import { LIMITS, isAbsoluteOrTildePath } from '@shared/ipc'
 import type {
   SessionCreateRequest,
   SessionWriteRequest,
@@ -57,7 +57,20 @@ export function validateCreate(raw: unknown): SessionCreateRequest {
     rows: dim(o.rows, 'rows', LIMITS.minRows, LIMITS.maxRows),
     projectName: o.projectName === undefined ? undefined : str(o.projectName, 'projectName', 256),
     runOnStart: o.runOnStart === undefined ? undefined : safeCommand(o.runOnStart),
+    claudeConfigDir:
+      o.claudeConfigDir === undefined ? undefined : configDirPath(o.claudeConfigDir),
   }
+}
+
+// The ONLY env var the renderer may set on a PTY. A path, not a command: it
+// must be absolute (or ~/-relative) with no NUL or control chars, so a
+// compromised renderer can't smuggle arbitrary env into spawned shells.
+function configDirPath(v: unknown): string {
+  const s = str(v, 'claudeConfigDir', 1024)
+  // eslint-disable-next-line no-control-regex
+  if (/[\x00-\x1f\x7f]/.test(s)) fail('claudeConfigDir must be a plain path')
+  if (!isAbsoluteOrTildePath(s)) fail('claudeConfigDir must be an absolute or ~/ path')
+  return s
 }
 
 // A start-up command must be a short single line (no control chars, no newline

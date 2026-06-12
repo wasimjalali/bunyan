@@ -1,69 +1,38 @@
 import { useStore } from '../state/store'
+import type { Project, ProjectSection, Workspace } from '@shared/types'
 import {
   activeProjectId,
-  orderProjectsByActivity,
   projectSessions,
   projectStatus,
   runningSessionCount,
+  sectionedProjects,
 } from '@shared/workspace'
 import { useFileDrop } from '../useFileDrop'
 import { ProjectRow } from './ProjectRow'
 import { StatusDot } from './StatusDot'
+import { getDrag } from './dnd'
+
+const SECTION_LABELS: Record<ProjectSection, string> = {
+  professional: 'Professional',
+  personal: 'Personal',
+}
 
 export function Rail(): React.JSX.Element {
   const workspace = useStore((s) => s.workspace)
-  const openProject = useStore((s) => s.openProject)
-  const addProjectFromPath = useStore((s) => s.addProjectFromPath)
-  const newSession = useStore((s) => s.newSession)
-  const closeSession = useStore((s) => s.closeSession)
-  const closeProject = useStore((s) => s.closeProject)
-  const rename = useStore((s) => s.rename)
-  const recolor = useStore((s) => s.recolor)
-  const collapse = useStore((s) => s.collapse)
   const focusSession = useStore((s) => s.focusSession)
-  const reorderProject = useStore((s) => s.reorderProject)
-  const reorderSession = useStore((s) => s.reorderSession)
   const updateSettings = useStore((s) => s.updateSettings)
 
   const railSide = workspace.settings.railSide
 
-  const handleCloseProject = (projectId: string): void => {
-    const project = workspace.projects.find((p) => p.id === projectId)
-    if (!project) return
-    const working = workspace.sessions.some(
-      (s) => s.projectId === projectId && s.status === 'working',
-    )
-    if (working) {
-      const ok = window.confirm(`${project.name} has a session still working. Close it anyway?`)
-      if (!ok) return
-    }
-    closeProject(projectId)
-  }
-
-  // Clicking a project jumps straight to its first session (usually the Claude
-  // one), so you don't have to expand and pick. No-op for an empty project.
-  const handleOpenProject = (projectId: string): void => {
-    const first = projectSessions(workspace, projectId)[0]
-    if (first) focusSession(first.id)
-  }
-
-  // The project owning the active session, so its row reads as current.
-  const currentProjectId = activeProjectId(workspace)
-
-  // When auto-sort is on, projects with a running agent float to the top; manual
-  // order is still the within-tier tiebreaker (and the drag target). The drop
-  // index always maps back to the underlying ws.projects order, since that's
-  // what reorderProject mutates.
-  const displayed = workspace.settings.autoSortProjects
-    ? orderProjectsByActivity(workspace)
-    : workspace.projects
-  const manualIndexOf = (projectId: string): number =>
-    workspace.projects.findIndex((p) => p.id === projectId)
+  // One activity sort per render: the section lists and the footer's session
+  // walk all derive from it.
+  const sections = sectionedProjects(workspace)
 
   // Flatten sessions in the order the rail shows them, so the footer's attention
   // jumper walks them the way the eye reads them. Running several agents at once
   // is the whole point of Bunyan, so the footer answers "is anything waiting on
   // me?" at a glance and jumps to the next one with a click.
+  const displayed = [...sections.professional, ...sections.personal]
   const orderedSessions = displayed.flatMap((p) => projectSessions(workspace, p.id))
   const needsInput = orderedSessions.filter((s) => s.status === 'needs-input')
   const workingCount = orderedSessions.filter((s) => s.status === 'working').length
@@ -79,67 +48,23 @@ export function Rail(): React.JSX.Element {
   const moveSidebarLabel = `Move sidebar to the ${oppositeSide}`
   const toggleSide = (): void => updateSettings({ railSide: oppositeSide })
 
-  // Folders dropped from Finder become projects. Row drop handlers
-  // stopPropagation, so an internal reorder never reaches here.
-  const { fileOver: folderOver, dropHandlers } = useFileDrop((paths) => {
-    for (const path of paths) void addProjectFromPath(path)
-  })
-
   return (
     <aside
       className={[
         'rail-depth flex h-full flex-col border-line bg-canvas',
         // The hairline sits on whichever edge faces the terminal.
         railSide === 'left' ? 'border-r' : 'border-l',
-        folderOver ? 'ring-2 ring-inset ring-gold' : '',
       ].join(' ')}
-      {...dropHandlers}
     >
-      <header className="drag-region flex h-9 shrink-0 items-center justify-between px-3">
+      <header className="drag-region flex h-9 shrink-0 items-center px-3">
         <span className="text-[11px] font-semibold uppercase tracking-widest text-ink-dim">
           Projects
         </span>
-        <button
-          onClick={() => void openProject()}
-          title="Add a project"
-          className="no-drag flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
-        >
-          +
-        </button>
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-2">
-        {workspace.projects.length === 0 ? (
-          <p className="px-2 pt-2 text-xs leading-relaxed text-ink-dim">
-            No projects yet. Add a folder to start.
-          </p>
-        ) : (
-          displayed.map((project) => (
-            <ProjectRow
-              key={project.id}
-              project={project}
-              index={manualIndexOf(project.id)}
-              sessions={projectSessions(workspace, project.id)}
-              status={projectStatus(workspace, project.id)}
-              runningCount={runningSessionCount(workspace, project.id)}
-              active={project.id === currentProjectId}
-              activeSessionId={workspace.activeSessionId}
-              onToggleCollapse={() => collapse(project.id)}
-              onOpenProject={() => handleOpenProject(project.id)}
-              onNewClaude={() => newSession(project.id, 'claude')}
-              onNewShell={() => newSession(project.id, 'shell')}
-              onRename={(name) => rename(project.id, name)}
-              onRecolor={(color) => recolor(project.id, color)}
-              onClose={() => handleCloseProject(project.id)}
-              onFocusSession={(id) => focusSession(id)}
-              onCloseSession={(id) => closeSession(id)}
-              onReorderProject={reorderProject}
-              onReorderSession={(sessionId, toIndex) =>
-                reorderSession(project.id, sessionId, toIndex)
-              }
-            />
-          ))
-        )}
+        <SectionGroup section="professional" projects={sections.professional} workspace={workspace} />
+        <SectionGroup section="personal" projects={sections.personal} workspace={workspace} />
       </div>
 
       <footer className="flex h-9 shrink-0 items-center justify-between gap-2 border-t border-line px-2">
@@ -169,6 +94,146 @@ export function Rail(): React.JSX.Element {
         ) : null}
       </footer>
     </aside>
+  )
+}
+
+/**
+ * One rail section: header with its own add button, then its projects with
+ * running ones floated to the top of THIS section only. The whole group is a
+ * Finder drop target, so a folder dropped on "Personal" lands in Personal.
+ * It also accepts internal project drags from the other section.
+ */
+function SectionGroup({
+  section,
+  projects,
+  workspace,
+}: {
+  section: ProjectSection
+  /** This section's projects in display order, computed once in Rail. */
+  projects: Project[]
+  workspace: Workspace
+}): React.JSX.Element {
+  const openProject = useStore((s) => s.openProject)
+  const addProjectFromPath = useStore((s) => s.addProjectFromPath)
+  const newSession = useStore((s) => s.newSession)
+  const closeSession = useStore((s) => s.closeSession)
+  const closeProject = useStore((s) => s.closeProject)
+  const rename = useStore((s) => s.rename)
+  const recolor = useStore((s) => s.recolor)
+  const setSection = useStore((s) => s.setSection)
+  const moveProject = useStore((s) => s.moveProject)
+  const refreshBranch = useStore((s) => s.refreshBranch)
+  const collapse = useStore((s) => s.collapse)
+  const focusSession = useStore((s) => s.focusSession)
+  const reorderSession = useStore((s) => s.reorderSession)
+
+  const currentProjectId = activeProjectId(workspace)
+  const manualIndexOf = (projectId: string): number =>
+    workspace.projects.findIndex((p) => p.id === projectId)
+
+  const handleCloseProject = (project: Project): void => {
+    const working = workspace.sessions.some(
+      (s) => s.projectId === project.id && s.status === 'working',
+    )
+    if (working) {
+      const ok = window.confirm(`${project.name} has a session still working. Close it anyway?`)
+      if (!ok) return
+    }
+    closeProject(project.id)
+  }
+
+  // Clicking a project jumps straight to its first session (usually the Claude
+  // one), so you don't have to expand and pick. No-op for an empty project.
+  const handleOpenProject = (projectId: string): void => {
+    const first = projectSessions(workspace, projectId)[0]
+    if (first) focusSession(first.id)
+  }
+
+  // A drop on a row of this section adopts the dragged project into it AND
+  // places it, in one atomic workspace step (moveProjectToSection).
+  const handleReorder = (draggedId: string, toIndex: number): void => {
+    moveProject(draggedId, section, toIndex)
+  }
+
+  // Folders dropped from Finder become projects in this section. Row drop
+  // handlers stopPropagation, so an internal reorder never reaches here.
+  const { fileOver: folderOver, dropHandlers } = useFileDrop((paths) => {
+    for (const path of paths) void addProjectFromPath(path, section)
+  })
+
+  // An internal project drag from the other section can drop on the header
+  // area (or an empty section), adopting the project at the end.
+  const acceptsSectionDrop = (): boolean => {
+    const d = getDrag()
+    if (d?.kind !== 'project') return false
+    return workspace.projects.find((p) => p.id === d.projectId)?.section !== section
+  }
+
+  return (
+    <section
+      {...dropHandlers}
+      className={['rounded-md pb-1', folderOver ? 'ring-1 ring-inset ring-gold' : ''].join(' ')}
+    >
+      <div
+        onDragOver={(e) => {
+          if (acceptsSectionDrop()) e.preventDefault()
+        }}
+        onDrop={(e) => {
+          e.stopPropagation()
+          const d = getDrag()
+          if (d?.kind === 'project') handleReorder(d.projectId, workspace.projects.length - 1)
+        }}
+        className="flex h-7 items-center justify-between pl-2 pr-1 pt-1"
+      >
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-dim/80">
+          {SECTION_LABELS[section]}
+        </span>
+        <button
+          onClick={() => void openProject(section)}
+          title={`Add a ${section} project`}
+          className="flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
+        >
+          +
+        </button>
+      </div>
+
+      {projects.length === 0 ? (
+        <p className="px-2 py-1.5 text-xs leading-relaxed text-ink-dim/70">
+          Drop a folder here or press +
+        </p>
+      ) : (
+        projects.map((project) => (
+          <ProjectRow
+            key={project.id}
+            project={project}
+            index={manualIndexOf(project.id)}
+            sessions={projectSessions(workspace, project.id)}
+            status={projectStatus(workspace, project.id)}
+            runningCount={runningSessionCount(workspace, project.id)}
+            active={project.id === currentProjectId}
+            activeSessionId={workspace.activeSessionId}
+            railSide={workspace.settings.railSide}
+            onToggleCollapse={() => collapse(project.id)}
+            onOpenProject={() => handleOpenProject(project.id)}
+            onNewClaude={() => newSession(project.id, 'claude')}
+            onNewShell={() => newSession(project.id, 'shell')}
+            onRename={(name) => rename(project.id, name)}
+            onRecolor={(color) => recolor(project.id, color)}
+            onMoveToSection={() =>
+              setSection(project.id, section === 'professional' ? 'personal' : 'professional')
+            }
+            onRefreshBranch={() => void refreshBranch(project.id)}
+            onClose={() => handleCloseProject(project)}
+            onFocusSession={(id) => focusSession(id)}
+            onCloseSession={(id) => closeSession(id)}
+            onReorderProject={handleReorder}
+            onReorderSession={(sessionId, toIndex) =>
+              reorderSession(project.id, sessionId, toIndex)
+            }
+          />
+        ))
+      )}
+    </section>
   )
 }
 

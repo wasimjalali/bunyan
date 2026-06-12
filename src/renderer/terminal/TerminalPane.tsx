@@ -16,6 +16,7 @@ import {
 } from './lifecycle'
 import { pastedPathsText } from './drop-paste'
 import { findFileRefs } from './file-links'
+import { ARM_WINDOW_MS, LinkGuard } from './link-guard'
 import { PasteGuard } from './PasteGuard'
 import { useFileDrop } from '../useFileDrop'
 import { useStore } from '../state/store'
@@ -32,6 +33,8 @@ interface TerminalPaneProps {
   shell?: string
   /** A command to run once the shell is ready, e.g. "claude". */
   runOnStart?: string
+  /** CLAUDE_CONFIG_DIR for this shell (the project section's Claude account). */
+  claudeConfigDir?: string
   /** Optional dimmed scrollback from a previous run, written above the live prompt. */
   restoreNote?: string
   theme: ITheme
@@ -94,6 +97,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     projectName,
     shell,
     runOnStart,
+    claudeConfigDir,
     restoreNote,
     theme,
     fontFamily,
@@ -107,6 +111,9 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
   const fitRef = useRef<FitAddon | null>(null)
   // Text held back by the multiline paste guard, awaiting confirm/cancel.
   const [pendingPaste, setPendingPaste] = useState<string | null>(null)
+  // The insecure http link awaiting its confirm click, shown as a hint toast.
+  const [armedLink, setArmedLink] = useState<string | null>(null)
+  const armedLinkTimer = useRef<number | null>(null)
 
   // Dropping files pastes their escaped paths, exactly like Terminal.app.
   // paste() honours bracketed paste, which Claude Code relies on to turn a
@@ -141,7 +148,22 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     term.loadAddon(fit)
     const search = new SearchAddon()
     term.loadAddon(search)
-    term.loadAddon(new WebLinksAddon())
+    // URL clicks go through the LinkGuard: https and localhost open at once;
+    // plain http arms on the first click and opens on the second. window.open
+    // is intercepted by the main process and routed to the system browser.
+    const linkGuard = new LinkGuard()
+    term.loadAddon(
+      new WebLinksAddon((_event, uri) => {
+        if (armedLinkTimer.current !== null) window.clearTimeout(armedLinkTimer.current)
+        if (linkGuard.decide(uri, Date.now()) === 'open') {
+          setArmedLink(null)
+          window.open(uri, '_blank')
+        } else {
+          setArmedLink(uri)
+          armedLinkTimer.current = window.setTimeout(() => setArmedLink(null), ARM_WINDOW_MS)
+        }
+      }),
+    )
     const unicode = new Unicode11Addon()
     term.loadAddon(unicode)
     term.unicode.activeVersion = '11'
@@ -253,6 +275,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
           projectName,
           shell: shell && shell.trim() !== '' ? shell : undefined,
           runOnStart,
+          claudeConfigDir,
           cols: term.cols,
           rows: term.rows,
         })
@@ -296,6 +319,10 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       offExit()
       inputSub.dispose()
       linkProvider.dispose()
+      if (armedLinkTimer.current !== null) {
+        window.clearTimeout(armedLinkTimer.current)
+        armedLinkTimer.current = null
+      }
       textarea?.removeEventListener('paste', onPaste, true)
       unregisterPaneTerminal(pane.id)
       // A real close (the PTY was killed) discards the pane for good; a
@@ -333,10 +360,21 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
       onMouseDown={props.onFocus}
       {...dropHandlers}
       className={[
-        'h-full w-full overflow-hidden px-2 pt-2',
+        'relative h-full w-full overflow-hidden px-2 pt-2',
         fileOver ? 'ring-2 ring-inset ring-gold' : '',
       ].join(' ')}
     >
+      {armedLink !== null && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="absolute bottom-2 left-1/2 z-10 flex max-w-[90%] -translate-x-1/2 items-center gap-2 rounded-md border border-line bg-surface px-3 py-1.5 text-xs shadow-lg"
+        >
+          <span className="shrink-0 font-medium text-gold">Not secure</span>
+          <span className="truncate text-ink-dim">{armedLink}</span>
+          <span className="shrink-0 text-ink">click again to open</span>
+        </div>
+      )}
       {pendingPaste !== null && (
         <PasteGuard
           text={pendingPaste}

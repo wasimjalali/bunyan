@@ -19,8 +19,13 @@ import {
   activeProjectId,
   activeOrFirstProjectId,
   moveInArray,
+  normalizeProjects,
   reorderProject,
   reorderSession,
+  sectionProjects,
+  setProjectSection,
+  moveProjectToSection,
+  displayedProjects,
   orderProjectsByActivity,
   orderedSessionIdsFor,
   runningSessionCount,
@@ -283,6 +288,79 @@ describe('sessionByOffsetIn / sessionByIndexIn', () => {
     expect(sessionByOffsetIn(ws, displayed, 1)).toBe(si.id)
     // Cmd-1 resolves to the working session, not the manual-order first.
     expect(sessionByIndexIn(displayed, 1)).toBe(sw.id)
+  })
+})
+
+describe('sections', () => {
+  it('defaults a new project to professional and moves it with setProjectSection', () => {
+    const { ws, p } = seed()
+    expect(p.section).toBe('professional')
+    const moved = setProjectSection(ws, p.id, 'personal')
+    expect(moved.projects[0]!.section).toBe('personal')
+  })
+
+  it('backfills a missing section on projects saved before the split', () => {
+    const { p } = seed()
+    const legacy = { ...p } as Partial<typeof p>
+    delete legacy.section
+    const fixed = normalizeProjects([legacy as typeof p])
+    expect(fixed[0]!.section).toBe('professional')
+  })
+
+  it('moveProjectToSection adopts and places the project in one step', () => {
+    let ws = createDefaultWorkspace()
+    const proA = createProject('/pro/a', 'proA', PROJECT_COLORS[0]!)
+    const proB = createProject('/pro/b', 'proB', PROJECT_COLORS[1]!)
+    const perA = createProject('/per/a', 'perA', PROJECT_COLORS[2]!, 'personal')
+    ws = [proA, proB, perA].reduce(addProject, ws)
+    // Drag perA onto proA's row (global index 0): it becomes professional and leads.
+    ws = moveProjectToSection(ws, perA.id, 'professional', 0)
+    expect(ws.projects.map((p) => p.name)).toEqual(['perA', 'proA', 'proB'])
+    expect(ws.projects[0]!.section).toBe('professional')
+  })
+
+  it('clamps a corrupted section value so the project cannot vanish from the rail', () => {
+    const { p } = seed()
+    // The saved JSON is user-editable; "Personal" (wrong case) or junk must not
+    // leave a project matching neither rail section.
+    const wrongCase = { ...p, section: 'Personal' as never }
+    const junk = { ...p, id: 'proj_2', section: 7 as never }
+    const fixed = normalizeProjects([wrongCase, junk])
+    expect(fixed.every((proj) => proj.section === 'professional')).toBe(true)
+  })
+
+  it('floats a running project to the top of its OWN section only', () => {
+    let ws = createDefaultWorkspace()
+    const proA = createProject('/pro/a', 'proA', PROJECT_COLORS[0]!)
+    const proB = createProject('/pro/b', 'proB', PROJECT_COLORS[1]!)
+    const perA = createProject('/per/a', 'perA', PROJECT_COLORS[2]!, 'personal')
+    const perB = createProject('/per/b', 'perB', PROJECT_COLORS[3]!, 'personal')
+    ws = [proA, proB, perA, perB].reduce(addProject, ws)
+    // perB runs an agent; proB merely has an idle prompt.
+    const sPerB = createSession(perB.id, 'claude', perB.path, 'claude', 'pty_1')
+    const sProB = createSession(proB.id, 'shell', proB.path, 'shell', 'pty_2')
+    ws = addSession(addSession(ws, sPerB), sProB)
+    ws = setSessionStatus(ws, sPerB.id, 'working')
+    ws = setSessionStatus(ws, sProB.id, 'idle')
+
+    // The personal runner leads its section but never crosses into professional.
+    expect(sectionProjects(ws, 'personal').map((p) => p.name)).toEqual(['perB', 'perA'])
+    expect(sectionProjects(ws, 'professional').map((p) => p.name)).toEqual(['proB', 'proA'])
+    expect(displayedProjects(ws).map((p) => p.name)).toEqual(['proB', 'proA', 'perB', 'perA'])
+  })
+
+  it('keeps manual order within sections when auto-sort is off', () => {
+    let ws = createDefaultWorkspace()
+    ws = { ...ws, settings: { ...ws.settings, autoSortProjects: false } }
+    const proA = createProject('/pro/a', 'proA', PROJECT_COLORS[0]!)
+    const perA = createProject('/per/a', 'perA', PROJECT_COLORS[1]!, 'personal')
+    const proB = createProject('/pro/b', 'proB', PROJECT_COLORS[2]!)
+    ws = [proA, perA, proB].reduce(addProject, ws)
+    const s = createSession(proB.id, 'claude', proB.path, 'claude', 'pty_1')
+    ws = addSession(ws, s)
+    ws = setSessionStatus(ws, s.id, 'working')
+    // Auto-sort off: proB stays below proA despite running.
+    expect(displayedProjects(ws).map((p) => p.name)).toEqual(['proA', 'proB', 'perA'])
   })
 })
 

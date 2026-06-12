@@ -1,9 +1,15 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { PROJECT_COLORS, type Project, type Session, type SessionStatus } from '@shared/types'
 import { StatusDot } from './StatusDot'
 import { SessionRow } from './SessionRow'
+import { ProjectHoverCard } from './ProjectHoverCard'
 import { setDrag, getDrag, clearDrag } from './dnd'
-import { railBadgeClass } from './badge'
+import { railBadgeClass, projectChipClass } from './badge'
+
+// The card waits long enough that scrolling the list doesn't strobe popovers,
+// and lingers briefly so the pointer can cross the gap onto its buttons.
+const HOVER_SHOW_MS = 350
+const HOVER_HIDE_MS = 150
 
 interface ProjectRowProps {
   project: Project
@@ -13,12 +19,15 @@ interface ProjectRowProps {
   runningCount: number
   active: boolean
   activeSessionId: string | null
+  railSide: 'left' | 'right'
   onToggleCollapse: () => void
   onOpenProject: () => void
   onNewClaude: () => void
   onNewShell: () => void
   onRename: (name: string) => void
   onRecolor: (color: string) => void
+  onMoveToSection: () => void
+  onRefreshBranch: () => void
   onClose: () => void
   onFocusSession: (id: string) => void
   onCloseSession: (id: string) => void
@@ -32,6 +41,41 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
   const [renaming, setRenaming] = useState(false)
   const [draftName, setDraftName] = useState(project.name)
   const [dropTarget, setDropTarget] = useState(false)
+  const [cardAnchor, setCardAnchor] = useState<DOMRect | null>(null)
+  const headerRef = useRef<HTMLDivElement>(null)
+  const showTimer = useRef<number | null>(null)
+  const hideTimer = useRef<number | null>(null)
+
+  const cancelTimers = (): void => {
+    if (showTimer.current !== null) window.clearTimeout(showTimer.current)
+    if (hideTimer.current !== null) window.clearTimeout(hideTimer.current)
+    showTimer.current = null
+    hideTimer.current = null
+  }
+
+  // Unmount cleanup IS cancelTimers; don't restate it.
+  useEffect(() => cancelTimers, [])
+
+  const scheduleCard = (): void => {
+    cancelTimers()
+    if (renaming || menuOpen) return
+    showTimer.current = window.setTimeout(() => {
+      const rect = headerRef.current?.getBoundingClientRect()
+      if (!rect) return
+      props.onRefreshBranch()
+      setCardAnchor(rect)
+    }, HOVER_SHOW_MS)
+  }
+
+  const scheduleHide = (): void => {
+    cancelTimers()
+    hideTimer.current = window.setTimeout(() => setCardAnchor(null), HOVER_HIDE_MS)
+  }
+
+  const closeCard = (): void => {
+    cancelTimers()
+    setCardAnchor(null)
+  }
 
   const commitRename = (): void => {
     const trimmed = draftName.trim()
@@ -44,16 +88,22 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
     return d?.kind === 'project' && d.projectId !== project.id
   }
 
+  const otherSection = project.section === 'professional' ? 'personal' : 'professional'
+
   return (
     <div className="group/project select-none">
       <div
+        ref={headerRef}
         draggable={!renaming}
+        onMouseEnter={scheduleCard}
+        onMouseLeave={scheduleHide}
         onDragStart={(e) => {
           // Don't start a project drag from inside the rename input.
           if (renaming) {
             e.preventDefault()
             return
           }
+          closeCard()
           setDrag({ kind: 'project', projectId: project.id })
         }}
         onDragEnd={clearDrag}
@@ -89,7 +139,7 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
         {renaming ? (
           <>
             <span
-              className={chipClass(active)}
+              className={projectChipClass(active)}
               style={{ backgroundColor: project.color }}
             >
               {project.name.charAt(0).toUpperCase()}
@@ -108,14 +158,16 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           </>
         ) : (
           // Clicking the chip or name opens the project's first session, no
-          // expand needed. The chevron alone toggles collapse.
+          // expand needed. The chevron alone toggles collapse. The branch is
+          // deliberately NOT inline: it lives in the hover card and the title
+          // bar, so a long feature branch can't crowd the project name.
           <button
             onClick={props.onOpenProject}
             title={`Open ${project.name}`}
             className="group/open flex min-w-0 flex-1 items-center gap-2 text-left"
           >
             <span
-              className={`${chipClass(active)} group-hover/open:-translate-y-px`}
+              className={`${projectChipClass(active)} group-hover/open:-translate-y-px`}
               style={{ backgroundColor: project.color }}
             >
               {project.name.charAt(0).toUpperCase()}
@@ -130,19 +182,14 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           <span className={`shrink-0 ${railBadgeClass}`}>{runningCount} live</span>
         )}
 
-        {project.branch && (
-          <span className="max-w-20 truncate rounded bg-line px-1.5 py-0.5 text-[10px] text-ink-dim">
-            {project.branch}
+        {/* The status dot stays put on hover; actions appear beside it, so the
+            one signal the rail exists for never blinks out under the pointer. */}
+        {project.collapsed && sessions.length > 0 && (
+          <span className="text-[11px] text-ink-dim group-hover/project:hidden">
+            {sessions.length}
           </span>
         )}
-
-        <span className="group-hover/project:hidden">
-          {project.collapsed && sessions.length > 0 ? (
-            <span className="text-[11px] text-ink-dim">{sessions.length}</span>
-          ) : (
-            <StatusDot status={status} />
-          )}
-        </span>
+        <StatusDot status={status} />
 
         <div className="relative hidden items-center gap-0.5 group-hover/project:flex">
           <ActionButton title="New Claude session" onClick={props.onNewClaude}>
@@ -151,11 +198,18 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           <ActionButton title="New shell" onClick={props.onNewShell}>
             S
           </ActionButton>
-          <ActionButton title="More" onClick={() => setMenuOpen((v) => !v)}>
+          <ActionButton
+            title="More"
+            onClick={() => {
+              closeCard()
+              setMenuOpen((v) => !v)
+            }}
+          >
             ⋯
           </ActionButton>
           {menuOpen && (
             <ProjectMenu
+              moveLabel={`Move to ${otherSection}`}
               onRename={() => {
                 setDraftName(project.name)
                 setRenaming(true)
@@ -163,6 +217,10 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
               }}
               onRecolor={(c) => {
                 props.onRecolor(c)
+              }}
+              onMoveToSection={() => {
+                props.onMoveToSection()
+                setMenuOpen(false)
               }}
               onClose={() => {
                 props.onClose()
@@ -173,6 +231,26 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
           )}
         </div>
       </div>
+
+      {cardAnchor && (
+        <ProjectHoverCard
+          project={project}
+          sessions={sessions}
+          status={status}
+          anchor={cardAnchor}
+          railSide={props.railSide}
+          onNewClaude={() => {
+            closeCard()
+            props.onNewClaude()
+          }}
+          onNewShell={() => {
+            closeCard()
+            props.onNewShell()
+          }}
+          onMouseEnter={cancelTimers}
+          onMouseLeave={scheduleHide}
+        />
+      )}
 
       {!project.collapsed && (
         <div className="mt-0.5 flex flex-col gap-0.5 pb-1">
@@ -198,16 +276,6 @@ export function ProjectRow(props: ProjectRowProps): React.JSX.Element {
   )
 }
 
-// The project initial chip: glossy enamel with a deep espresso letter that
-// stays readable on every project shade, gold-ringed when the project owns the
-// active session.
-function chipClass(active: boolean): string {
-  return [
-    'chip-gloss flex h-5 w-5 shrink-0 items-center justify-center rounded text-[11px] font-semibold text-espresso',
-    active ? 'chip-gloss-active' : '',
-  ].join(' ')
-}
-
 function ActionButton(props: {
   title: string
   onClick: () => void
@@ -225,8 +293,10 @@ function ActionButton(props: {
 }
 
 function ProjectMenu(props: {
+  moveLabel: string
   onRename: () => void
   onRecolor: (color: string) => void
+  onMoveToSection: () => void
   onClose: () => void
   dismiss: () => void
 }): React.JSX.Element {
@@ -239,6 +309,12 @@ function ProjectMenu(props: {
           className="block w-full rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-line"
         >
           Rename
+        </button>
+        <button
+          onClick={props.onMoveToSection}
+          className="block w-full rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-line"
+        >
+          {props.moveLabel}
         </button>
         <div className="px-2 py-1.5">
           <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-dim">Colour</div>

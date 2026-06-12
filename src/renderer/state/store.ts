@@ -1,6 +1,13 @@
 import { create } from 'zustand'
 import { DEFAULT_SETTINGS } from '@shared/types'
-import type { PaneNode, SessionKind, Settings, SplitDir, Workspace } from '@shared/types'
+import type {
+  PaneNode,
+  ProjectSection,
+  SessionKind,
+  Settings,
+  SplitDir,
+  Workspace,
+} from '@shared/types'
 import type { OpenedProject } from '@shared/ipc'
 import { makeId } from '@shared/id'
 import { markPtyClosed } from '../terminal/lifecycle'
@@ -18,6 +25,7 @@ import {
   createSession,
   nextProjectColor,
   nextSessionTitle,
+  normalizeProjects,
   addProject,
   addSession,
   removeSession,
@@ -25,6 +33,8 @@ import {
   renameProject,
   setProjectColor,
   setProjectBranch,
+  setProjectSection,
+  moveProjectToSection,
   toggleCollapse,
   setActiveSession,
   setSessionStatus,
@@ -53,13 +63,16 @@ interface BunyanState {
   }
 
   hydrate(): Promise<void>
-  openProject(): Promise<void>
-  addProjectFromPath(path: string): Promise<void>
+  openProject(section?: ProjectSection): Promise<void>
+  addProjectFromPath(path: string, section?: ProjectSection): Promise<void>
   newSession(projectId: string, kind: SessionKind): void
   closeSession(sessionId: string): void
   closeProject(projectId: string): void
   rename(projectId: string, name: string): void
   recolor(projectId: string, color: string): void
+  setSection(projectId: string, section: ProjectSection): void
+  moveProject(projectId: string, section: ProjectSection, toIndex: number): void
+  refreshBranch(projectId: string): Promise<void>
   collapse(projectId: string): void
   reorderProject(projectId: string, toIndex: number): void
   reorderSession(projectId: string, sessionId: string, toIndex: number): void
@@ -89,6 +102,10 @@ function firstPaneId(ws: Workspace, sessionId: string | null): string | null {
 
 const DIM = '\x1b[2m'
 const RESET = '\x1b[0m'
+
+// Transient per-project timestamps for the hover-driven branch refresh.
+const BRANCH_REFRESH_COOLDOWN_MS = 10_000
+const branchRefreshedAt = new Map<string, number>()
 
 // The dimmed block written above the live prompt of a restored pane. Includes
 // the captured scrollback when there is some, then an honest separator: the old
@@ -124,6 +141,14 @@ export const useStore = create<BunyanState>((set, get) => ({
     // instead of leaving them undefined.
     if (loaded) {
       workspace.settings = { ...DEFAULT_SETTINGS, ...loaded.settings }
+      // claudeConfigDirs is an object; a partial saved value (or none) merges
+      // over the defaults so both sections always have a key.
+      workspace.settings.claudeConfigDirs = {
+        ...DEFAULT_SETTINGS.claudeConfigDirs,
+        ...loaded.settings?.claudeConfigDirs,
+      }
+      // Projects saved before the professional/personal split get a section.
+      workspace.projects = normalizeProjects(workspace.projects)
     }
     // The claude-auto-relaunch setting governs restore: when it's off, restored
     // Claude sessions come back as plain shells (no auto `claude`).
@@ -147,14 +172,14 @@ export const useStore = create<BunyanState>((set, get) => ({
     })
   },
 
-  async openProject() {
+  async openProject(section = 'professional') {
     const opened = await window.bunyan.project.openDialog()
-    if (opened) await addOpenedProject(get, set, opened)
+    if (opened) await addOpenedProject(get, set, opened, section)
   },
 
-  async addProjectFromPath(path) {
+  async addProjectFromPath(path, section = 'professional') {
     const opened = await window.bunyan.project.fromPath(path)
-    if (opened) await addOpenedProject(get, set, opened)
+    if (opened) await addOpenedProject(get, set, opened, section)
   },
 
   newSession(projectId, kind) {
@@ -211,6 +236,31 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   recolor(projectId, color) {
     set((s) => ({ workspace: setProjectColor(s.workspace, projectId, color) }))
+  },
+
+  setSection(projectId, section) {
+    set((s) => ({ workspace: setProjectSection(s.workspace, projectId, section) }))
+  },
+
+  moveProject(projectId, section, toIndex) {
+    set((s) => ({ workspace: moveProjectToSection(s.workspace, projectId, section, toIndex) }))
+  },
+
+  // Re-read a project's git branch on demand (the hover card opening), so the
+  // readout reflects checkouts made since the project was added. Throttled per
+  // project: each read forks a git process, and sweeping the pointer down the
+  // rail would otherwise fork one per row.
+  async refreshBranch(projectId) {
+    const last = branchRefreshedAt.get(projectId) ?? 0
+    const now = Date.now()
+    if (now - last < BRANCH_REFRESH_COOLDOWN_MS) return
+    branchRefreshedAt.set(projectId, now)
+    const project = get().workspace.projects.find((p) => p.id === projectId)
+    if (!project) return
+    const branch = await window.bunyan.project.gitBranch({ path: project.path })
+    if (branch && branch.branch !== project.branch) {
+      set((s) => ({ workspace: setProjectBranch(s.workspace, projectId, branch.branch) }))
+    }
   },
 
   collapse(projectId) {
@@ -382,6 +432,7 @@ async function addOpenedProject(
   get: () => BunyanState,
   set: (partial: (s: BunyanState) => Partial<BunyanState>) => void,
   opened: OpenedProject,
+  section: ProjectSection,
 ): Promise<void> {
   const ws = get().workspace
   if (ws.projects.some((p) => p.path === opened.path)) return
@@ -389,6 +440,7 @@ async function addOpenedProject(
     opened.path,
     opened.name,
     nextProjectColor(ws.projects.map((p) => p.color)),
+    section,
   )
   set((s) => ({ workspace: addProject(s.workspace, project) }))
   const branch = await window.bunyan.project.gitBranch({ path: opened.path })

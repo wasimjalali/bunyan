@@ -3,8 +3,10 @@
 
 import {
   PROJECT_COLORS,
+  PROJECT_SECTIONS,
   DEFAULT_SETTINGS,
   type Project,
+  type ProjectSection,
   type Session,
   type SessionKind,
   type SessionStatus,
@@ -32,7 +34,12 @@ export function nextProjectColor(usedColors: readonly string[]): string {
   return free ?? PROJECT_COLORS[usedColors.length % PROJECT_COLORS.length]!
 }
 
-export function createProject(path: string, name: string, color: string): Project {
+export function createProject(
+  path: string,
+  name: string,
+  color: string,
+  section: ProjectSection = 'professional',
+): Project {
   return {
     id: makeId('proj'),
     name,
@@ -40,7 +47,21 @@ export function createProject(path: string, name: string, color: string): Projec
     color,
     collapsed: false,
     sessionIds: [],
+    section,
   }
+}
+
+/**
+ * Backfill fields added since a workspace was saved. Projects from before the
+ * professional/personal split have no section; they land in 'professional'.
+ * The saved JSON is user-editable, so any value outside the known sections is
+ * clamped too: the rail only renders known sections, and an unknown one would
+ * silently drop the project from the UI.
+ */
+export function normalizeProjects(projects: Project[]): Project[] {
+  return projects.map((p) =>
+    PROJECT_SECTIONS.includes(p.section) ? p : { ...p, section: 'professional' as const },
+  )
 }
 
 /** A new session with a single leaf pane bound to the given pty id. */
@@ -138,6 +159,17 @@ export function setProjectBranch(
   }
 }
 
+export function setProjectSection(
+  ws: Workspace,
+  projectId: string,
+  section: ProjectSection,
+): Workspace {
+  return {
+    ...ws,
+    projects: ws.projects.map((p) => (p.id === projectId ? { ...p, section } : p)),
+  }
+}
+
 export function toggleCollapse(ws: Workspace, projectId: string): Workspace {
   return {
     ...ws,
@@ -228,6 +260,34 @@ export function orderProjectsByActivity(ws: Workspace): Project[] {
     .map((d) => d.project)
 }
 
+/**
+ * The rail's sections in display order, computed with ONE activity sort.
+ * Auto-sort floats running projects to the top of their OWN section; manual
+ * order is the within-tier tiebreaker.
+ */
+export function sectionedProjects(ws: Workspace): Record<ProjectSection, Project[]> {
+  const ordered = ws.settings.autoSortProjects ? orderProjectsByActivity(ws) : ws.projects
+  return {
+    professional: ordered.filter((p) => p.section === 'professional'),
+    personal: ordered.filter((p) => p.section === 'personal'),
+  }
+}
+
+/** One section of the rail, in display order. */
+export function sectionProjects(ws: Workspace, section: ProjectSection): Project[] {
+  return sectionedProjects(ws)[section]
+}
+
+/**
+ * Every project in the order the rail displays them: the professional section,
+ * then the personal one. Keyboard navigation (Cmd-1..9, Cmd-]/[) and the
+ * footer's attention jumper all walk this order so they match the eye.
+ */
+export function displayedProjects(ws: Workspace): Project[] {
+  const sections = sectionedProjects(ws)
+  return [...sections.professional, ...sections.personal]
+}
+
 /** Count of sessions currently needing input, for the dock badge. */
 export function needsInputCount(ws: Workspace): number {
   return ws.sessions.filter((s) => s.status === 'needs-input').length
@@ -279,6 +339,19 @@ export function reorderProject(ws: Workspace, projectId: string, toIndex: number
   const from = ws.projects.findIndex((p) => p.id === projectId)
   if (from === -1) return ws
   return { ...ws, projects: moveInArray(ws.projects, from, toIndex) }
+}
+
+/**
+ * A cross-section drag is one intent: adopt the project into the section AND
+ * place it. One atomic step, so no caller can apply half of it.
+ */
+export function moveProjectToSection(
+  ws: Workspace,
+  projectId: string,
+  section: ProjectSection,
+  toIndex: number,
+): Workspace {
+  return reorderProject(setProjectSection(ws, projectId, section), projectId, toIndex)
 }
 
 /** Reorder a session within its project's session list. */

@@ -26,6 +26,11 @@ export interface Session {
   autoRelaunch: boolean // claude sessions: re-run `claude` on restore
 }
 
+// The rail groups projects into two sections so work and personal repos stay
+// apart. Each section can also point Claude at its own account (see Settings).
+export type ProjectSection = 'professional' | 'personal'
+export const PROJECT_SECTIONS: readonly ProjectSection[] = ['professional', 'personal']
+
 export interface Project {
   id: string
   name: string // from the folder, editable
@@ -34,6 +39,7 @@ export interface Project {
   branch?: string // git branch readout
   collapsed: boolean
   sessionIds: string[] // order in the rail
+  section: ProjectSection
 }
 
 export type ThemeChoice = 'dark' | 'light' | 'system'
@@ -74,6 +80,11 @@ export interface Settings {
   optionAsMeta: boolean
   /** Saved prompts surfaced in the command palette. */
   snippets: Snippet[]
+  /**
+   * Per-section Claude config dirs (CLAUDE_CONFIG_DIR), so each section can hold
+   * its own Claude login. Empty string = the default account (~/.claude).
+   */
+  claudeConfigDirs: Record<ProjectSection, string>
 }
 
 export interface WindowBounds {
@@ -128,4 +139,5 @@ export const DEFAULT_SETTINGS: Settings = {
   // Users who want readline word shortcuts flip it in Settings.
   optionAsMeta: false,
   snippets: [],
+  claudeConfigDirs: { professional: '', personal: '' },
 }

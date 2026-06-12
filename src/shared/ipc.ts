@@ -32,6 +32,15 @@ export interface NotifyPrefs {
   silenceAlertSeconds: number
 }
 
+/**
+ * The shape a Claude config dir must have: absolute or ~-relative. The renderer
+ * gate (don't send a typo) and the main-process validator (trust boundary)
+ * share this one predicate so the rule can't drift between them.
+ */
+export function isAbsoluteOrTildePath(p: string): boolean {
+  return p.startsWith('/') || p === '~' || p.startsWith('~/')
+}
+
 // Bounds used by payload validation in the main process.
 export const LIMITS = {
   minCols: 1,
@@ -55,6 +64,11 @@ export interface SessionCreateRequest {
   projectName?: string
   /** A command to run once the shell is ready (e.g. "claude" for a Claude session). */
   runOnStart?: string
+  /**
+   * CLAUDE_CONFIG_DIR for this session's shell, so each rail section can hold
+   * its own Claude login. Absolute or "~/" path; omitted = the default account.
+   */
+  claudeConfigDir?: string
 }
 
 export interface SessionCreateResult {
