@@ -49,8 +49,8 @@ export function SettingsPanel(): React.JSX.Element | null {
       aria-modal="true"
       aria-label="Settings"
     >
-      <div className="overlay-panel w-[440px] max-w-[92vw] rounded-xl border border-line bg-surface shadow-2xl">
-        <header className="flex items-center justify-between border-b border-line px-4 py-3">
+      <div className="overlay-panel flex max-h-[80vh] w-[440px] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl">
+        <header className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
           <h2 className="font-[family-name:var(--font-wordmark)] text-base font-semibold text-ink">
             Settings
           </h2>
@@ -62,7 +62,7 @@ export function SettingsPanel(): React.JSX.Element | null {
           </button>
         </header>
 
-        <div className="flex flex-col gap-3 p-4">
+        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
           <Row label="Theme">
             <Select<ThemeChoice>
               value={settings.theme}
