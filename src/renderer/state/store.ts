@@ -8,7 +8,7 @@ import type {
   SplitDir,
   Workspace,
 } from '@shared/types'
-import type { OpenedProject } from '@shared/ipc'
+import type { ClaudeAccountStatus, OpenedProject } from '@shared/ipc'
 import { makeId } from '@shared/id'
 import { markPtyClosed } from '../terminal/lifecycle'
 import {
@@ -52,6 +52,11 @@ interface BunyanState {
   restoreNotes: Record<string, string>
   /** Sessions with new output since they were last active. Transient, keyed by sessionId. */
   unread: Record<string, true>
+  /**
+   * Which sections have a Claude OAuth token saved. Transient: the tokens live
+   * encrypted in the main process and are never held here, only these booleans.
+   */
+  credStatus: ClaudeAccountStatus
   /** Transient UI flags (not persisted). */
   ui: {
     paletteOpen: boolean
@@ -85,6 +90,12 @@ interface BunyanState {
   setSplitRatio(sessionId: string, path: Array<'a' | 'b'>, ratio: number): void
   applyStatus(sessionId: string, status: Workspace['sessions'][number]['status']): void
   updateSettings(patch: Partial<Settings>): void
+  /** Pull which sections have a Claude token saved from the main process. */
+  loadCredStatus(): Promise<void>
+  /** Encrypt and store a section's Claude OAuth token; rejects if storage fails. */
+  setClaudeToken(section: ProjectSection, token: string): Promise<void>
+  /** Forget a section's Claude OAuth token. */
+  clearClaudeToken(section: ProjectSection): Promise<void>
   setPalette(open: boolean): void
   setSettingsOpen(open: boolean): void
   setSearch(open: boolean): void
@@ -125,6 +136,7 @@ export const useStore = create<BunyanState>((set, get) => ({
   focusedPaneId: null,
   restoreNotes: {},
   unread: {},
+  credStatus: { professional: 'none', personal: 'none' },
   ui: {
     paletteOpen: false,
     settingsOpen: false,
@@ -170,6 +182,9 @@ export const useStore = create<BunyanState>((set, get) => ({
       restoreNotes,
       focusedPaneId: firstPaneId(workspace, workspace.activeSessionId),
     })
+    // Which sections already hold a Claude token (booleans only). Best-effort:
+    // a failure just leaves the default "not set" state, which the UI handles.
+    void get().loadCredStatus()
   },
 
   async openProject(section = 'professional') {
@@ -354,6 +369,28 @@ export const useStore = create<BunyanState>((set, get) => ({
 
   updateSettings(patch) {
     set((s) => ({ workspace: { ...s.workspace, settings: { ...s.workspace.settings, ...patch } } }))
+  },
+
+  async loadCredStatus() {
+    // Best-effort: a failure leaves the default "none" state rather than
+    // throwing an unhandled rejection (it's called fire-and-forget from hydrate).
+    try {
+      set({ credStatus: await window.bunyan.cred.status() })
+    } catch {
+      // Keep whatever state we already have.
+    }
+  },
+
+  async setClaudeToken(section, token) {
+    // Let a rejection (e.g. OS secure storage unavailable) propagate so the
+    // Settings UI can surface it instead of pretending the token was saved.
+    await window.bunyan.cred.set({ section, token })
+    await get().loadCredStatus()
+  },
+
+  async clearClaudeToken(section) {
+    await window.bunyan.cred.clear({ section })
+    await get().loadCredStatus()
   },
 
   setPalette(open) {

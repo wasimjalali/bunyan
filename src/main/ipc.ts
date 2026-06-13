@@ -7,6 +7,7 @@ import type { WorkspaceStore } from './store/WorkspaceStore'
 import type { SessionMonitor } from './monitor/SessionMonitor'
 import { isDirectory, openProjectDialog, readGitBranch, resolveProjectPath } from './project'
 import { expandTilde } from './paths'
+import type { CredentialStore } from './store/CredentialStore'
 import {
   validateCreate,
   validateWrite,
@@ -16,6 +17,8 @@ import {
   validateGitBranch,
   validateNotifyPrefs,
   validateOpenInEditor,
+  validateCredSet,
+  validateCredSection,
   ValidationError,
 } from './ipc-validate'
 
@@ -24,7 +27,11 @@ import {
  * SessionMonitor. Validation failures surface as a generic rejected invoke; we
  * never leak internal detail to the renderer.
  */
-export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): void {
+export function registerSessionIpc(
+  pty: PtyManager,
+  monitor: SessionMonitor,
+  credentials: CredentialStore,
+): void {
   ipcMain.handle(IPC.sessionCreate, (_e, raw) => {
     const req = guard(() => validateCreate(raw))
     // A saved session can outlive its working directory (moved or deleted repo).
@@ -34,6 +41,8 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
       throw new Error('Working directory no longer exists')
     }
     monitor.register(req.paneId, req.sessionId, req.projectName)
+    // The section's Claude OAuth token is resolved and decrypted here, never in
+    // the renderer: the plaintext token stays inside the main process.
     pty.create({
       ptyId: req.paneId,
       cwd: req.cwd,
@@ -42,6 +51,7 @@ export function registerSessionIpc(pty: PtyManager, monitor: SessionMonitor): vo
       rows: req.rows,
       runOnStart: req.runOnStart,
       claudeConfigDir: req.claudeConfigDir,
+      claudeOauthToken: req.section ? (credentials.getToken(req.section) ?? undefined) : undefined,
     })
     return { paneId: req.paneId }
   })
@@ -129,6 +139,27 @@ export function registerStoreIpc(store: WorkspaceStore): void {
   ipcMain.handle(IPC.storeSave, (_e, raw) => {
     store.save(raw as Workspace)
   })
+}
+
+/**
+ * Per-section Claude OAuth tokens. set/clear mutate the encrypted store; status
+ * returns only booleans. There is deliberately no "get token" channel: the
+ * plaintext token is write-only from the renderer's side and is read only inside
+ * the main process when spawning a PTY.
+ */
+export function registerCredentialIpc(credentials: CredentialStore): void {
+  ipcMain.handle(IPC.credSet, (_e, raw) => {
+    const req = guard(() => validateCredSet(raw))
+    // setToken throws if the OS secure-storage backend is unavailable; that
+    // rejection surfaces to the renderer so it can tell the user, rather than
+    // silently writing a token in the clear.
+    credentials.setToken(req.section, req.token)
+  })
+  ipcMain.handle(IPC.credClear, (_e, raw) => {
+    const req = guard(() => validateCredSection(raw))
+    credentials.clearToken(req.section)
+  })
+  ipcMain.handle(IPC.credStatus, () => credentials.status())
 }
 
 /**

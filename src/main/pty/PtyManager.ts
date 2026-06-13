@@ -14,8 +14,16 @@ export interface SpawnOptions {
   rows: number
   /** A command written to the shell once it has had a moment to initialise. */
   runOnStart?: string
-  /** CLAUDE_CONFIG_DIR for this shell (a per-section Claude account). */
+  /** CLAUDE_CONFIG_DIR for this shell: isolates a section's Claude settings/history. */
   claudeConfigDir?: string
+  /**
+   * CLAUDE_CODE_OAUTH_TOKEN for this shell: the section's own Claude login. On
+   * macOS this is what actually separates two accounts, since the OAuth token
+   * otherwise lives in one shared Keychain item that CLAUDE_CONFIG_DIR can't
+   * redirect. Setting it makes the claude CLI use this token and skip the
+   * Keychain, so signing in/out in one section no longer disturbs the other.
+   */
+  claudeOauthToken?: string
 }
 
 // Give the login shell a beat to run its rc files before we type into it, so a
@@ -90,9 +98,19 @@ export class PtyManager {
       // No-op when the user/profile already set a locale. See locale.ts for why.
       ...this.localeEnv,
     }
-    // A per-section Claude account: point the claude CLI at its own config dir
-    // so professional and personal sessions hold separate logins.
+    // A per-section Claude account. CLAUDE_CONFIG_DIR isolates settings/history;
+    // CLAUDE_CODE_OAUTH_TOKEN isolates the actual login (the macOS Keychain holds
+    // only one shared token, so without this both sections share one account).
     if (opts.claudeConfigDir) env.CLAUDE_CONFIG_DIR = expandTilde(opts.claudeConfigDir)
+    if (opts.claudeOauthToken) {
+      env.CLAUDE_CODE_OAUTH_TOKEN = opts.claudeOauthToken
+      // These outrank CLAUDE_CODE_OAUTH_TOKEN in the claude CLI's auth order, so
+      // if the user has either exported in their shell profile, leaving them set
+      // would silently override this section's token and break isolation. Drop
+      // them for this PTY so the section's own token is the one that takes effect.
+      delete env.ANTHROPIC_API_KEY
+      delete env.ANTHROPIC_AUTH_TOKEN
+    }
 
     const args = loginArgs(shell)
     const gate = new FlowGate(FLOW_HIGH_WATER, FLOW_LOW_WATER)

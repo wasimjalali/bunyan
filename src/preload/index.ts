@@ -18,6 +18,9 @@ import type {
   FocusRequestEvent,
   NotifyPrefs,
   Unsubscribe,
+  CredSetRequest,
+  CredSectionRequest,
+  ClaudeAccountStatus,
 } from '@shared/ipc'
 import type { Workspace } from '@shared/types'
 
@@ -54,6 +57,11 @@ const api: BunyanApi = {
   store: {
     load: (): Promise<Workspace | null> => ipcRenderer.invoke(IPC.storeLoad),
     save: (workspace: Workspace): Promise<void> => ipcRenderer.invoke(IPC.storeSave, workspace),
+  },
+  cred: {
+    set: (req: CredSetRequest): Promise<void> => ipcRenderer.invoke(IPC.credSet, req),
+    clear: (req: CredSectionRequest): Promise<void> => ipcRenderer.invoke(IPC.credClear, req),
+    status: (): Promise<ClaudeAccountStatus> => ipcRenderer.invoke(IPC.credStatus),
   },
   app: {
     setActiveSession: (sessionId: string | null): void =>

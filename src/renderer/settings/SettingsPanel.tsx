@@ -1,8 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../state/store'
 import { makeId } from '@shared/id'
-import { EDITOR_CHOICES } from '@shared/types'
-import type { BellMode, CursorStyle, EditorChoice, Snippet, ThemeChoice } from '@shared/types'
+import { EDITOR_CHOICES, PROJECT_SECTIONS } from '@shared/types'
+import type {
+  BellMode,
+  CursorStyle,
+  EditorChoice,
+  ProjectSection,
+  Snippet,
+  ThemeChoice,
+} from '@shared/types'
+import { isAbsoluteOrTildePath } from '@shared/ipc'
+import type { ClaudeAccountState } from '@shared/ipc'
 
 const EDITOR_LABELS: Record<EditorChoice, string> = {
   vscode: 'VS Code',
@@ -153,38 +162,7 @@ export function SettingsPanel(): React.JSX.Element | null {
             />
           </Row>
 
-          <div className="flex flex-col gap-2 border-t border-line pt-3">
-            <span className="text-sm text-ink-dim">Claude accounts</span>
-            <p className="text-xs leading-relaxed text-ink-dim/70">
-              Give a section its own config folder to keep a separate Claude login, e.g.
-              ~/.claude-personal. Leave empty for your default account. New sessions pick
-              this up; run /login once in that section to sign in.
-            </p>
-            <Row label="Professional">
-              <input
-                value={settings.claudeConfigDirs.professional}
-                onChange={(e) =>
-                  update({
-                    claudeConfigDirs: { ...settings.claudeConfigDirs, professional: e.target.value },
-                  })
-                }
-                placeholder="Default (~/.claude)"
-                className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
-              />
-            </Row>
-            <Row label="Personal">
-              <input
-                value={settings.claudeConfigDirs.personal}
-                onChange={(e) =>
-                  update({
-                    claudeConfigDirs: { ...settings.claudeConfigDirs, personal: e.target.value },
-                  })
-                }
-                placeholder="Default (~/.claude)"
-                className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
-              />
-            </Row>
-          </div>
+          <ClaudeAccounts />
 
           <Row label="Default shell">
             <input
@@ -220,6 +198,160 @@ export function SettingsPanel(): React.JSX.Element | null {
           />
         </div>
       </div>
+    </div>
+  )
+}
+
+const SECTION_LABELS: Record<ProjectSection, string> = {
+  professional: 'Professional',
+  personal: 'Personal',
+}
+
+/**
+ * Per-section Claude account setup. Two things isolate a section: an optional
+ * config dir (CLAUDE_CONFIG_DIR, for settings/history) and an OAuth token
+ * (CLAUDE_CODE_OAUTH_TOKEN, the actual login). On macOS the token is what truly
+ * separates accounts, since the login otherwise lives in one shared Keychain
+ * item. The token is held encrypted in the main process, so this UI only ever
+ * sends it (write-only) and reads back a saved/not-saved flag.
+ */
+function ClaudeAccounts(): React.JSX.Element {
+  const settings = useStore((s) => s.workspace.settings)
+  const update = useStore((s) => s.updateSettings)
+  const credStatus = useStore((s) => s.credStatus)
+  const setToken = useStore((s) => s.setClaudeToken)
+  const clearToken = useStore((s) => s.clearClaudeToken)
+
+  return (
+    <div className="flex flex-col gap-2 border-t border-line pt-3">
+      <span className="text-sm text-ink-dim">Claude accounts</span>
+      <p className="text-xs leading-relaxed text-ink-dim/70">
+        Keep each section on its own Claude login. On macOS the login lives in one shared
+        Keychain item, so signing in per section is not enough; run{' '}
+        <code className="rounded bg-canvas px-1 text-ink-dim">claude setup-token</code> while
+        signed into that account and paste the token below. A section with no token shares your
+        default account (and isn't isolated). Changes apply to new sessions; restart a running
+        session to switch its account.
+      </p>
+      {PROJECT_SECTIONS.map((section) => (
+        <ClaudeAccountRow
+          key={section}
+          label={SECTION_LABELS[section]}
+          configDir={settings.claudeConfigDirs[section]}
+          onConfigDir={(value) =>
+            update({ claudeConfigDirs: { ...settings.claudeConfigDirs, [section]: value } })
+          }
+          state={credStatus[section]}
+          onSaveToken={(token) => setToken(section, token)}
+          onClearToken={() => clearToken(section)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ClaudeAccountRow(props: {
+  label: string
+  configDir: string
+  onConfigDir: (value: string) => void
+  state: ClaudeAccountState
+  onSaveToken: (token: string) => Promise<void>
+  onClearToken: () => Promise<void>
+}): React.JSX.Element {
+  const [token, setToken] = useState('')
+  const [error, setError] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const saved = props.state === 'saved'
+  const unreadable = props.state === 'unreadable'
+
+  // Fail loud on a malformed config dir: a non-empty path that isn't absolute or
+  // ~/-relative is dropped by the spawn path, silently falling back to the
+  // default account. Surface that instead of letting it merge accounts quietly.
+  const dir = props.configDir.trim()
+  const dirInvalid = dir !== '' && !isAbsoluteOrTildePath(dir)
+
+  const save = async (): Promise<void> => {
+    if (token.trim() === '' || busy) return
+    setBusy(true)
+    setError(null)
+    try {
+      await props.onSaveToken(token)
+      setToken('')
+    } catch {
+      setError('Could not save the token. Your OS secure storage may be unavailable.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const clear = async (): Promise<void> => {
+    setError(null)
+    try {
+      await props.onClearToken()
+    } catch {
+      setError('Could not clear the token.')
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-1.5 rounded-md bg-canvas/40 p-2">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-sm text-ink">{props.label}</span>
+        {saved || unreadable ? (
+          <span
+            className={['flex items-center gap-2 text-xs', unreadable ? 'text-error' : 'text-gold'].join(
+              ' ',
+            )}
+          >
+            <span aria-hidden>●</span>
+            <span>{unreadable ? "Token unreadable, re-enter" : 'Token saved'}</span>
+            <button
+              onClick={() => void clear()}
+              className="rounded px-1.5 py-0.5 text-ink-dim hover:bg-line hover:text-ink"
+            >
+              Clear
+            </button>
+          </span>
+        ) : (
+          <span className="text-xs text-ink-dim/70">Using default account</span>
+        )}
+      </div>
+      <input
+        value={props.configDir}
+        onChange={(e) => props.onConfigDir(e.target.value)}
+        placeholder="Config dir, e.g. ~/.claude-personal (optional)"
+        aria-invalid={dirInvalid}
+        className={[
+          'w-full rounded-md border bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim',
+          dirInvalid ? 'border-error focus:border-error' : 'border-line focus:border-gold',
+        ].join(' ')}
+      />
+      {dirInvalid && (
+        <span className="text-xs text-error">
+          Use an absolute or ~/ path. This value is ignored, so the section falls back to your
+          default account.
+        </span>
+      )}
+      <div className="flex items-center gap-2">
+        <input
+          type="password"
+          value={token}
+          onChange={(e) => setToken(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void save()
+          }}
+          placeholder={saved ? 'Paste a new token to replace' : 'Paste setup-token output'}
+          className="w-full rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+        />
+        <button
+          onClick={() => void save()}
+          disabled={token.trim() === '' || busy}
+          className="shrink-0 rounded-md bg-gold px-3 py-1 text-sm font-medium text-deep-navy hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-40"
+        >
+          Save
+        </button>
+      </div>
+      {error && <span className="text-xs text-error">{error}</span>}
     </div>
   )
 }

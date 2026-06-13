@@ -2,7 +2,7 @@
 // The renderer never touches ipcRenderer directly; it talks to `window.bunyan`,
 // whose shape is `BunyanApi` below.
 
-import type { BellMode, SessionKind, SessionStatus, Workspace } from './types'
+import type { BellMode, ProjectSection, SessionKind, SessionStatus, Workspace } from './types'
 
 export const IPC = {
   sessionCreate: 'session:create',
@@ -18,6 +18,9 @@ export const IPC = {
   projectGitBranch: 'project:gitBranch',
   storeLoad: 'store:load',
   storeSave: 'store:save',
+  credSet: 'cred:set',
+  credClear: 'cred:clear',
+  credStatus: 'cred:status',
   appFocusRequest: 'app:focusRequest',
   appActiveSession: 'app:activeSession',
   appNotifyPrefs: 'app:notifyPrefs',
@@ -66,10 +69,35 @@ export interface SessionCreateRequest {
   runOnStart?: string
   /**
    * CLAUDE_CONFIG_DIR for this session's shell, so each rail section can hold
-   * its own Claude login. Absolute or "~/" path; omitted = the default account.
+   * its own Claude settings/history. Absolute or "~/" path; omitted = default.
    */
   claudeConfigDir?: string
+  /**
+   * The rail section this session belongs to. The main process uses it to look
+   * up the section's encrypted Claude OAuth token (CLAUDE_CODE_OAUTH_TOKEN); the
+   * token itself never crosses to the renderer. Omitted = the default account.
+   */
+  section?: ProjectSection
 }
+
+/** Set (and encrypt) a section's Claude OAuth token. The token is write-only over IPC. */
+export interface CredSetRequest {
+  section: ProjectSection
+  token: string
+}
+
+export interface CredSectionRequest {
+  section: ProjectSection
+}
+
+/**
+ * Per-section credential state for the UI. Never carries the token itself.
+ * 'none' = no token; 'saved' = a token is stored and readable; 'unreadable' = a
+ * token is stored but can't be decrypted (e.g. the OS key changed) and must be
+ * re-entered, so the UI never shows a reassuring "saved" for a token that won't work.
+ */
+export type ClaudeAccountState = 'none' | 'saved' | 'unreadable'
+export type ClaudeAccountStatus = Record<ProjectSection, ClaudeAccountState>
 
 export interface SessionCreateResult {
   paneId: string
@@ -165,6 +193,14 @@ export interface BunyanApi {
   store: {
     load(): Promise<Workspace | null>
     save(workspace: Workspace): Promise<void>
+  }
+  cred: {
+    /** Encrypt and store a section's Claude OAuth token in the main process. */
+    set(req: CredSetRequest): Promise<void>
+    /** Forget a section's token. */
+    clear(req: CredSectionRequest): Promise<void>
+    /** Which sections have a token saved (booleans only, never the token). */
+    status(): Promise<ClaudeAccountStatus>
   }
   app: {
     setActiveSession(sessionId: string | null): void

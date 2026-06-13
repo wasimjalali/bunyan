@@ -5,7 +5,7 @@ import { SearchAddon } from '@xterm/addon-search'
 import { WebLinksAddon } from '@xterm/addon-web-links'
 import { Unicode11Addon } from '@xterm/addon-unicode11'
 import { WebglAddon } from '@xterm/addon-webgl'
-import type { CursorStyle, Pane, SessionKind } from '@shared/types'
+import type { CursorStyle, Pane, ProjectSection, SessionKind } from '@shared/types'
 import { registerPaneTerminal, unregisterPaneTerminal } from './registry'
 import { captureScrollback, markScrollbackDirty } from './scrollback'
 import {
@@ -33,8 +33,10 @@ interface TerminalPaneProps {
   shell?: string
   /** A command to run once the shell is ready, e.g. "claude". */
   runOnStart?: string
-  /** CLAUDE_CONFIG_DIR for this shell (the project section's Claude account). */
+  /** CLAUDE_CONFIG_DIR for this shell (the project section's Claude settings dir). */
   claudeConfigDir?: string
+  /** The project's rail section; the main process maps it to the section's Claude token. */
+  section?: ProjectSection
   /** Optional dimmed scrollback from a previous run, written above the live prompt. */
   restoreNote?: string
   theme: ITheme
@@ -98,6 +100,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
     shell,
     runOnStart,
     claudeConfigDir,
+    section,
     restoreNote,
     theme,
     fontFamily,
@@ -276,6 +279,7 @@ export function TerminalPane(props: TerminalPaneProps): React.JSX.Element {
           shell: shell && shell.trim() !== '' ? shell : undefined,
           runOnStart,
           claudeConfigDir,
+          section,
           cols: term.cols,
           rows: term.rows,
         })

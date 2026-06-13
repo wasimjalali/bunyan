@@ -126,6 +126,7 @@ export function App(): React.JSX.Element {
                       claudeConfigDir={
                         project ? configDirFor(settings, project.section) : undefined
                       }
+                      section={project?.section}
                       focusedPaneId={isActive ? focusedPaneId : null}
                       restoreNotes={restoreNotes}
                       theme={theme.xterm}

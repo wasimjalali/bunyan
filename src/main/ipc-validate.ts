@@ -12,9 +12,11 @@ import type {
   GitBranchRequest,
   OpenInEditorRequest,
   NotifyPrefs,
+  CredSetRequest,
+  CredSectionRequest,
 } from '@shared/ipc'
-import { EDITOR_CHOICES } from '@shared/types'
-import type { BellMode, EditorChoice, SessionKind } from '@shared/types'
+import { EDITOR_CHOICES, PROJECT_SECTIONS } from '@shared/types'
+import type { BellMode, EditorChoice, ProjectSection, SessionKind } from '@shared/types'
 
 class ValidationError extends Error {}
 
@@ -59,16 +61,56 @@ export function validateCreate(raw: unknown): SessionCreateRequest {
     runOnStart: o.runOnStart === undefined ? undefined : safeCommand(o.runOnStart),
     claudeConfigDir:
       o.claudeConfigDir === undefined ? undefined : configDirPath(o.claudeConfigDir),
+    section: o.section === undefined ? undefined : projectSection(o.section),
   }
 }
 
-// The ONLY env var the renderer may set on a PTY. A path, not a command: it
-// must be absolute (or ~/-relative) with no NUL or control chars, so a
-// compromised renderer can't smuggle arbitrary env into spawned shells.
+// One of the two known rail sections. Anything else is rejected so a malformed
+// section can't be used to look up (or skip) the wrong account's token.
+function projectSection(v: unknown): ProjectSection {
+  const s = str(v, 'section', 32)
+  if (!(PROJECT_SECTIONS as readonly string[]).includes(s)) {
+    fail('section is not a valid project section')
+  }
+  return s as ProjectSection
+}
+
+export function validateCredSet(raw: unknown): CredSetRequest {
+  const o = asObject(raw)
+  return { section: projectSection(o.section), token: secretToken(o.token) }
+}
+
+export function validateCredSection(raw: unknown): CredSectionRequest {
+  const o = asObject(raw)
+  return { section: projectSection(o.section) }
+}
+
+// A Claude OAuth token (from `claude setup-token`): a single-line secret. We
+// trim surrounding whitespace (a pasted token often carries a trailing newline)
+// but reject interior control chars so it can't smuggle a second env assignment
+// across the PTY boundary, and bound the length so a paste accident can't bloat
+// the encrypted store.
+function secretToken(v: unknown): string {
+  const s = str(v, 'token', 8192).trim()
+  if (s === '') fail('token must not be empty')
+  if (hasControlChars(s)) fail('token must be a single plain line')
+  return s
+}
+
+// Control chars (incl. newline/NUL/DEL) can split one value into a second env
+// assignment or truncate a path/command at the native boundary; reject them in
+// every value that crosses into a spawned shell's environment or argv.
+function hasControlChars(s: string): boolean {
+  // eslint-disable-next-line no-control-regex
+  return /[\x00-\x1f\x7f]/.test(s)
+}
+
+// A CLAUDE_CONFIG_DIR path, not a command: it must be absolute (or ~/-relative)
+// with no control chars, so a compromised renderer can't smuggle arbitrary env
+// into spawned shells.
 function configDirPath(v: unknown): string {
   const s = str(v, 'claudeConfigDir', 1024)
-  // eslint-disable-next-line no-control-regex
-  if (/[\x00-\x1f\x7f]/.test(s)) fail('claudeConfigDir must be a plain path')
+  if (hasControlChars(s)) fail('claudeConfigDir must be a plain path')
   if (!isAbsoluteOrTildePath(s)) fail('claudeConfigDir must be an absolute or ~/ path')
   return s
 }
@@ -77,8 +119,7 @@ function configDirPath(v: unknown): string {
 // injection). The renderer only ever sends "claude"; this keeps it honest.
 function safeCommand(v: unknown): string {
   const s = str(v, 'runOnStart', 64)
-  // eslint-disable-next-line no-control-regex
-  if (/[\x00-\x1f\x7f]/.test(s)) fail('runOnStart must be a single plain line')
+  if (hasControlChars(s)) fail('runOnStart must be a single plain line')
   return s
 }
 

@@ -42,11 +42,20 @@ items marked **recommended** are documented for a later pass.
    Lookalike hosts (localhost.evil.com, 127.0.0.1.evil.com) don't pass the
    localhost test.
 
-6. **One Claude login for everything.** Settings now hold a Claude config
-   dir per section (CLAUDE_CONFIG_DIR). Point Personal at e.g.
-   ~/.claude-personal and sessions in that section run under their own
-   Claude account; Professional keeps the default. Only this single,
-   path-validated env var can cross from renderer to PTY spawn.
+6. **One Claude login for everything.** Settings hold a per-section Claude
+   config dir (CLAUDE_CONFIG_DIR) AND a per-section OAuth token
+   (CLAUDE_CODE_OAUTH_TOKEN). The config dir alone was not enough: on macOS
+   Claude Code keeps its login in a single shared Keychain item
+   (`Claude Code-credentials`) that CLAUDE_CONFIG_DIR does not namespace, so
+   `/login` or `/logout` in one section clobbered the other (Anthropic issue
+   #20553). The token is the real fix: run `claude setup-token` while signed
+   into each account, paste it into that section, and Bunyan injects it as
+   CLAUDE_CODE_OAUTH_TOKEN, which makes the CLI use that token and skip the
+   Keychain entirely. The token is encrypted with Electron safeStorage
+   (Keychain-backed) and stored in `credentials.json`, never in the plaintext
+   workspace file; the plaintext token is write-only over IPC and is decrypted
+   only in the main process when spawning a PTY. The config dir still isolates
+   each account's settings/history and is validated as an absolute or ~/ path.
 
 7. **Keyboard navigation matched the old order.** Cmd-1..9, Cmd-]/[ and the
    footer's "needs input" jumper all follow the new sectioned display order

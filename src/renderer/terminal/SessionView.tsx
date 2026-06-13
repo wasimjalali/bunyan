@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import type { ITheme } from '@xterm/xterm'
-import type { CursorStyle, PaneNode, Session } from '@shared/types'
+import type { CursorStyle, PaneNode, ProjectSection, Session } from '@shared/types'
 import { listPanes } from '@shared/pane-tree'
 import { TerminalPane } from './TerminalPane'
 
@@ -11,6 +11,8 @@ interface SessionViewProps {
   shell: string
   /** CLAUDE_CONFIG_DIR for this project's section; empty = the default account. */
   claudeConfigDir?: string
+  /** The project's rail section, used to pick the section's Claude token in main. */
+  section?: ProjectSection
   focusedPaneId: string | null
   restoreNotes: Record<string, string>
   theme: ITheme
@@ -69,6 +71,7 @@ function renderNode(
           shell={props.shell}
           runOnStart={runOnStart}
           claudeConfigDir={props.claudeConfigDir}
+          section={props.section}
           restoreNote={props.restoreNotes[node.pane.ptyId]}
           theme={props.theme}
           fontFamily={props.fontFamily}

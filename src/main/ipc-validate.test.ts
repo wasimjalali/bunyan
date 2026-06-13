@@ -8,6 +8,8 @@ import {
   validateGitBranch,
   validateNotifyPrefs,
   validateOpenInEditor,
+  validateCredSet,
+  validateCredSection,
 } from './ipc-validate'
 
 const goodCreate = {
@@ -61,6 +63,37 @@ describe('ipc-validate', () => {
     expect(() => validateCreate({ ...goodCreate, claudeConfigDir: '/dir\nVAR=evil' })).toThrow()
     expect(() => validateCreate({ ...goodCreate, claudeConfigDir: '/dir\0' })).toThrow()
     expect(() => validateCreate({ ...goodCreate, claudeConfigDir: 42 })).toThrow()
+  })
+
+  it('accepts a valid project section on create, rejects an invalid one', () => {
+    expect(validateCreate({ ...goodCreate, section: 'personal' }).section).toBe('personal')
+    expect(validateCreate({ ...goodCreate, section: 'professional' }).section).toBe('professional')
+    expect(validateCreate(goodCreate).section).toBeUndefined()
+    expect(() => validateCreate({ ...goodCreate, section: 'work' })).toThrow()
+    expect(() => validateCreate({ ...goodCreate, section: 42 })).toThrow()
+  })
+
+  it('validates a credential-set request (section + single-line secret token)', () => {
+    expect(validateCredSet({ section: 'personal', token: 'sk-ant-oat-abc123' })).toEqual({
+      section: 'personal',
+      token: 'sk-ant-oat-abc123',
+    })
+    // section must be one of the two known sections
+    expect(() => validateCredSet({ section: 'work', token: 'tok' })).toThrow()
+    // token must be a non-empty single-line string with no control chars
+    expect(() => validateCredSet({ section: 'personal', token: '' })).toThrow()
+    expect(() => validateCredSet({ section: 'personal', token: '   ' })).toThrow()
+    expect(() => validateCredSet({ section: 'personal', token: 'tok\nVAR=evil' })).toThrow()
+    expect(() => validateCredSet({ section: 'personal', token: 'tok\0' })).toThrow()
+    expect(() => validateCredSet({ section: 'personal', token: 42 })).toThrow()
+    expect(() => validateCredSet({ section: 'personal', token: 'x'.repeat(9000) })).toThrow()
+    expect(() => validateCredSet({ token: 'tok' })).toThrow()
+  })
+
+  it('validates a credential-section request', () => {
+    expect(validateCredSection({ section: 'professional' })).toEqual({ section: 'professional' })
+    expect(() => validateCredSection({ section: 'nope' })).toThrow()
+    expect(() => validateCredSection({})).toThrow()
   })
 
   it('bounds the write payload size', () => {
