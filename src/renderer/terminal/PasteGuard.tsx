@@ -42,7 +42,7 @@ export function PasteGuard({ text, onPaste, onCancel }: PasteGuardProps): React.
 
   return (
     <div
-      className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[14vh]"
+      className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-deep-navy/55 pt-[14vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) onCancel()
       }}
@@ -51,7 +51,7 @@ export function PasteGuard({ text, onPaste, onCancel }: PasteGuardProps): React.
       aria-modal="true"
       aria-label="Confirm paste"
     >
-      <div className="overlay-panel w-[520px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl">
+      <div className="overlay-panel panel w-[520px] max-w-[90vw] overflow-hidden">
         <div className="border-b border-line px-4 py-3 text-sm font-medium text-ink">
           Paste {lineCount} lines into this terminal?
         </div>
@@ -62,15 +62,11 @@ export function PasteGuard({ text, onPaste, onCancel }: PasteGuardProps): React.
         <div className="flex justify-end gap-2 border-t border-line px-4 py-3">
           <button
             onClick={onCancel}
-            className="rounded-md border border-line px-3 py-1.5 text-sm text-ink-dim hover:bg-line/60 hover:text-ink"
+            className="icon-btn rounded-md border border-line px-3.5 py-1.5 text-sm"
           >
             Cancel
           </button>
-          <button
-            ref={pasteRef}
-            onClick={onPaste}
-            className="rounded-md bg-gold px-3 py-1.5 text-sm font-medium text-deep-navy hover:bg-gold-deep"
-          >
+          <button ref={pasteRef} onClick={onPaste} className="btn-primary px-3.5 py-1.5 text-sm">
             Paste
           </button>
         </div>

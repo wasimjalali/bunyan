@@ -48,7 +48,7 @@ export function ProjectHoverCard(props: ProjectHoverCardProps): React.JSX.Elemen
       onMouseEnter={props.onMouseEnter}
       onMouseLeave={props.onMouseLeave}
       style={{ top, ...sideStyle }}
-      className="overlay-panel fixed z-30 w-64 rounded-lg border border-line bg-surface p-3 shadow-xl"
+      className="overlay-panel menu fixed z-30 w-64 p-3"
     >
       <div className="flex items-center gap-2">
         <span className={projectChipClass(false)} style={{ backgroundColor: project.color }}>

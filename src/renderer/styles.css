@@ -94,8 +94,9 @@ body {
 
 /*
  * Depth and polish helpers (still-frame premium, brand palette only).
- * - rail-depth: a barely-there vertical wash plus a left inner highlight so the
- *   rail reads as a raised surface, not a flat block.
+ * - rail-depth: a faint inner top highlight plus a 1px left edge highlight so the
+ *   rail reads as a raised surface. No background gradient: the rail's border
+ *   and these flat edge highlights carry the separation.
  * - title-hairline: a thin gold-tinted accent under the title bar.
  * - chip-gloss: a polished enamel treatment for project colour chips (rail
  *   initial, palette dot, picker swatch). The chip's own colour is set inline as
@@ -105,12 +106,9 @@ body {
  *   a dark edge plus a light edge so it stays visible on dark and light themes.
  */
 .rail-depth {
-  background-image: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--color-surface) 22%, transparent),
-    transparent 240px
-  );
-  box-shadow: inset 1px 0 0 rgba(255, 255, 255, 0.04);
+  box-shadow:
+    inset 1px 0 0 rgba(255, 255, 255, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.03);
 }
 .title-hairline {
   box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--color-gold) 28%, transparent);
@@ -187,5 +185,198 @@ body {
   .overlay-backdrop,
   .overlay-panel {
     animation: none;
+  }
+}
+
+/* ============================================================
+   Premium pass: one depth language and a small set of control
+   primitives, all on the navy / gold / cream identity. One accent
+   (gold); shadows tinted with the deep-navy brand hue; the only
+   gradient is the chip-gloss enamel signature defined above.
+   ============================================================ */
+
+:root {
+  /* Navy-tinted elevation, three tiers. Higher tier floats higher. */
+  --shadow-card: 0 1px 2px rgba(8, 16, 30, 0.18), 0 8px 24px -12px rgba(8, 16, 30, 0.45);
+  --shadow-raise: 0 2px 4px rgba(8, 16, 30, 0.22), 0 18px 40px -16px rgba(8, 16, 30, 0.55);
+  --shadow-lift: 0 4px 10px rgba(8, 16, 30, 0.26), 0 30px 60px -20px rgba(8, 16, 30, 0.66);
+  --radius-control: 8px;
+  --radius-panel: 14px;
+}
+
+/* Tailwind v4 dropped the button pointer; restore it. */
+button:not(:disabled),
+[role='button'],
+summary {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: default;
+}
+
+/* App-chrome text selection (the terminal draws its own selection). */
+::selection {
+  background-color: color-mix(in srgb, var(--color-gold) 30%, transparent);
+  color: var(--color-ink);
+}
+
+/* Text-input primitive: one definition wherever a field appears. Width and
+   any layout come from utility classes at the call site. */
+.input {
+  border: 1px solid var(--color-line);
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--color-ink);
+  transition:
+    border-color var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft);
+}
+.input::placeholder {
+  color: var(--color-ink-dim);
+}
+.input:focus,
+.input:focus-visible {
+  outline: none;
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-gold) 22%, transparent);
+}
+.input[aria-invalid='true'] {
+  border-color: var(--color-error);
+}
+.input[aria-invalid='true']:focus {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-error) 22%, transparent);
+}
+
+/* Floating surfaces: settings, palette, hover card. One depth language. */
+.panel {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-panel);
+  box-shadow: var(--shadow-lift);
+}
+
+/* Popover menus (project menu, select listbox): one tier down from a panel.
+   Padding is left to the call site so it doesn't override Tailwind utilities
+   (these unlayered classes outrank Tailwind's layered ones). */
+.menu {
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-line);
+  border-radius: 10px;
+  box-shadow: var(--shadow-raise);
+}
+.elev-1 {
+  box-shadow: var(--shadow-card);
+}
+.elev-2 {
+  box-shadow: var(--shadow-raise);
+}
+.menu-item {
+  /* Text colour comes from a utility at the call site so a danger item can be
+     red (an unlayered colour here would outrank Tailwind's text-* utilities). */
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 8px;
+  border-radius: 7px;
+  padding: 7px 9px;
+  text-align: left;
+  font-size: 13px;
+  transition: background-color var(--dur-fast) var(--ease-soft);
+}
+.menu-item:hover,
+.menu-item[data-active='true'] {
+  background-color: color-mix(in srgb, var(--color-gold) 15%, transparent);
+}
+
+/* Icon-only control: tint on hover, calm press. Never scale-rotate on hover. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-control);
+  color: var(--color-ink-dim);
+  transition:
+    background-color var(--dur-fast) var(--ease-soft),
+    color var(--dur-fast) var(--ease-soft),
+    transform var(--dur-fast) var(--ease-soft);
+}
+.icon-btn:hover {
+  background-color: color-mix(in srgb, var(--color-ink) 10%, transparent);
+  color: var(--color-ink);
+}
+.icon-btn:active {
+  transform: scale(0.94);
+}
+
+/* The one primary action: gold, lifts on hover, presses in. */
+.btn-primary {
+  background-color: var(--color-gold);
+  color: var(--color-deep-navy);
+  border-radius: var(--radius-control);
+  font-weight: 500;
+  transition:
+    background-color var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft),
+    transform var(--dur-fast) var(--ease-soft);
+}
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--color-gold-deep);
+  box-shadow: var(--shadow-raise);
+}
+.btn-primary:active:not(:disabled) {
+  transform: scale(0.97);
+}
+.btn-primary:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* Custom select trigger: we render our own listbox, never native chrome. */
+.select-trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--color-line);
+  background-color: var(--color-canvas);
+  border-radius: var(--radius-control);
+  padding: 6px 10px;
+  font-size: 13px;
+  color: var(--color-ink);
+  transition:
+    border-color var(--dur-fast) var(--ease-soft),
+    box-shadow var(--dur-fast) var(--ease-soft);
+}
+.select-trigger:hover {
+  border-color: color-mix(in srgb, var(--color-gold) 45%, var(--color-line));
+}
+.select-trigger[aria-expanded='true'] {
+  border-color: var(--color-gold);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-gold) 22%, transparent);
+}
+.select-chevron {
+  color: var(--color-ink-dim);
+  transition: transform var(--dur-fast) var(--ease-soft);
+}
+.select-trigger[aria-expanded='true'] .select-chevron {
+  transform: rotate(180deg);
+}
+
+/* Popover menu open motion (small, within the motion budget). */
+.menu-in {
+  animation: bunyan-pop-in 140ms var(--ease-out);
+}
+
+/* Blanket reduced-motion: neutralise all motion once, at the end. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

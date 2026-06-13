@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useStore } from '../state/store'
 import { makeId } from '@shared/id'
 import { EDITOR_CHOICES, PROJECT_SECTIONS } from '@shared/types'
@@ -41,7 +41,7 @@ export function SettingsPanel(): React.JSX.Element | null {
 
   return (
     <div
-      className="overlay-backdrop fixed inset-0 z-40 flex items-start justify-center bg-black/40 pt-[10vh]"
+      className="overlay-backdrop fixed inset-0 z-40 flex items-start justify-center bg-deep-navy/55 pt-[10vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) setSettingsOpen(false)
       }}
@@ -49,153 +49,150 @@ export function SettingsPanel(): React.JSX.Element | null {
       aria-modal="true"
       aria-label="Settings"
     >
-      <div className="overlay-panel flex max-h-[80vh] w-[440px] max-w-[92vw] flex-col overflow-hidden rounded-xl border border-line bg-surface shadow-2xl">
-        <header className="flex shrink-0 items-center justify-between border-b border-line px-4 py-3">
-          <h2 className="font-[family-name:var(--font-wordmark)] text-base font-semibold text-ink">
+      <div className="overlay-panel panel flex max-h-[80vh] w-[460px] max-w-[92vw] flex-col overflow-hidden">
+        <header className="flex shrink-0 items-center justify-between border-b border-line px-5 py-3.5">
+          <h2 className="font-[family-name:var(--font-wordmark)] text-[17px] font-semibold tracking-tight text-ink">
             Settings
           </h2>
           <button
             onClick={() => setSettingsOpen(false)}
-            className="flex h-6 w-6 items-center justify-center rounded text-ink-dim hover:bg-line hover:text-ink"
+            aria-label="Close settings"
+            className="icon-btn h-7 w-7"
           >
-            ×
+            <CloseGlyph />
           </button>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto p-4">
-          <Row label="Theme">
-            <Select<ThemeChoice>
-              value={settings.theme}
-              options={[
-                ['dark', 'Dark'],
-                ['light', 'Light'],
-                ['system', 'System'],
-              ]}
-              onChange={(theme) => update({ theme })}
-            />
-          </Row>
+        <div className="flex min-h-0 flex-1 flex-col gap-7 overflow-y-auto px-5 py-5">
+          <Group label="Appearance">
+            <Row label="Theme">
+              <Select<ThemeChoice>
+                value={settings.theme}
+                options={[
+                  ['dark', 'Dark'],
+                  ['light', 'Light'],
+                  ['system', 'System'],
+                ]}
+                onChange={(theme) => update({ theme })}
+              />
+            </Row>
+            <Row label="Font family">
+              <input
+                value={settings.fontFamily}
+                onChange={(e) => update({ fontFamily: e.target.value })}
+                className="input w-48"
+              />
+            </Row>
+            <Row label="Font size">
+              <input
+                type="number"
+                min={9}
+                max={28}
+                value={settings.fontSize}
+                onChange={(e) => update({ fontSize: clampSize(Number(e.target.value)) })}
+                className="input w-20 text-right tabular-nums"
+              />
+            </Row>
+            <Row label="Cursor">
+              <Select<CursorStyle>
+                value={settings.cursorStyle}
+                options={[
+                  ['block', 'Block'],
+                  ['bar', 'Bar'],
+                  ['underline', 'Underline'],
+                ]}
+                onChange={(cursorStyle) => update({ cursorStyle })}
+              />
+            </Row>
+            <Row label="Sidebar side" caption="Which side the projects rail docks to">
+              <Select<'left' | 'right'>
+                value={settings.railSide}
+                options={[
+                  ['right', 'Right'],
+                  ['left', 'Left'],
+                ]}
+                onChange={(railSide) => update({ railSide })}
+              />
+            </Row>
+          </Group>
 
-          <Row label="Font family">
-            <input
-              value={settings.fontFamily}
-              onChange={(e) => update({ fontFamily: e.target.value })}
-              className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none focus:border-gold"
-            />
-          </Row>
+          <Group label="Notifications">
+            <Row label="Bell">
+              <Select<BellMode>
+                value={settings.bell}
+                options={[
+                  ['status-only', 'Status only'],
+                  ['sound', 'Sound'],
+                  ['off', 'Off'],
+                ]}
+                onChange={(bell) => update({ bell })}
+              />
+            </Row>
+            <Row label="Desktop notifications">
+              <Toggle on={settings.notifications} onChange={(notifications) => update({ notifications })} />
+            </Row>
+            <Row label="Silence alert" caption="Notify when a working session goes quiet">
+              <input
+                type="number"
+                min={0}
+                max={3600}
+                value={settings.silenceAlertSeconds}
+                onChange={(e) => update({ silenceAlertSeconds: clampSilence(Number(e.target.value)) })}
+                title="Seconds (0 disables)"
+                className="input w-20 text-right tabular-nums"
+              />
+            </Row>
+          </Group>
 
-          <Row label="Font size">
-            <input
-              type="number"
-              min={9}
-              max={28}
-              value={settings.fontSize}
-              onChange={(e) => update({ fontSize: clampSize(Number(e.target.value)) })}
-              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none focus:border-gold"
-            />
-          </Row>
+          <Group label="Sessions">
+            <Row label="Auto-sort projects" caption="Bring projects with running sessions to the top">
+              <Toggle
+                on={settings.autoSortProjects}
+                onChange={(autoSortProjects) => update({ autoSortProjects })}
+              />
+            </Row>
+            <Row label="Relaunch Claude on restore">
+              <Toggle
+                on={settings.claudeAutoRelaunch}
+                onChange={(claudeAutoRelaunch) => update({ claudeAutoRelaunch })}
+              />
+            </Row>
+            <Row label="Default shell">
+              <input
+                value={settings.defaultShell}
+                onChange={(e) => update({ defaultShell: e.target.value })}
+                placeholder="Default ($SHELL)"
+                className="input w-48"
+              />
+            </Row>
+            <Row label="Open files in">
+              <Select<EditorChoice>
+                value={settings.editor}
+                options={EDITOR_CHOICES.map((id) => [id, EDITOR_LABELS[id]])}
+                onChange={(editor) => update({ editor })}
+              />
+            </Row>
+            <Row
+              label="Confirm multiline paste"
+              caption="Ask before pasting multiple lines into a shell without bracketed paste"
+            >
+              <Toggle on={settings.pasteWarning} onChange={(pasteWarning) => update({ pasteWarning })} />
+            </Row>
+            <Row
+              label="Option key sends Meta"
+              caption="Enables Option plus arrow and readline word shortcuts"
+            >
+              <Toggle on={settings.optionAsMeta} onChange={(optionAsMeta) => update({ optionAsMeta })} />
+            </Row>
+          </Group>
 
-          <Row label="Cursor">
-            <Select<CursorStyle>
-              value={settings.cursorStyle}
-              options={[
-                ['block', 'Block'],
-                ['bar', 'Bar'],
-                ['underline', 'Underline'],
-              ]}
-              onChange={(cursorStyle) => update({ cursorStyle })}
-            />
-          </Row>
+          <Group label="Claude accounts">
+            <ClaudeAccounts />
+          </Group>
 
-          <Row label="Bell">
-            <Select<BellMode>
-              value={settings.bell}
-              options={[
-                ['status-only', 'Status only'],
-                ['sound', 'Sound'],
-                ['off', 'Off'],
-              ]}
-              onChange={(bell) => update({ bell })}
-            />
-          </Row>
-
-          <Row label="Notifications">
-            <Toggle on={settings.notifications} onChange={(notifications) => update({ notifications })} />
-          </Row>
-
-          <Row
-            label="Auto-sort projects"
-            caption="Bring projects with running sessions to the top"
-          >
-            <Toggle
-              on={settings.autoSortProjects}
-              onChange={(autoSortProjects) => update({ autoSortProjects })}
-            />
-          </Row>
-
-          <Row label="Sidebar side" caption="Which side the projects rail docks to">
-            <Select<'left' | 'right'>
-              value={settings.railSide}
-              options={[
-                ['right', 'Right'],
-                ['left', 'Left'],
-              ]}
-              onChange={(railSide) => update({ railSide })}
-            />
-          </Row>
-
-          <Row label="Silence alert" caption="Notify when a working session goes quiet">
-            <input
-              type="number"
-              min={0}
-              max={3600}
-              value={settings.silenceAlertSeconds}
-              onChange={(e) => update({ silenceAlertSeconds: clampSilence(Number(e.target.value)) })}
-              title="Seconds (0 disables)"
-              className="w-20 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none focus:border-gold"
-            />
-          </Row>
-
-          <Row label="Relaunch Claude on restore">
-            <Toggle
-              on={settings.claudeAutoRelaunch}
-              onChange={(claudeAutoRelaunch) => update({ claudeAutoRelaunch })}
-            />
-          </Row>
-
-          <ClaudeAccounts />
-
-          <Row label="Default shell">
-            <input
-              value={settings.defaultShell}
-              onChange={(e) => update({ defaultShell: e.target.value })}
-              placeholder="Default ($SHELL)"
-              className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
-            />
-          </Row>
-
-          <Row label="Open files in">
-            <Select<EditorChoice>
-              value={settings.editor}
-              options={EDITOR_CHOICES.map((id) => [id, EDITOR_LABELS[id]])}
-              onChange={(editor) => update({ editor })}
-            />
-          </Row>
-
-          <Row
-            label="Confirm multiline paste"
-            caption="Ask before pasting multiple lines into a shell without bracketed paste"
-          >
-            <Toggle on={settings.pasteWarning} onChange={(pasteWarning) => update({ pasteWarning })} />
-          </Row>
-
-          <Row label="Option key sends Meta" caption="Enables Option plus arrow and readline word shortcuts">
-            <Toggle on={settings.optionAsMeta} onChange={(optionAsMeta) => update({ optionAsMeta })} />
-          </Row>
-
-          <Snippets
-            snippets={settings.snippets}
-            onChange={(snippets) => update({ snippets })}
-          />
+          <Group label="Snippets">
+            <Snippets snippets={settings.snippets} onChange={(snippets) => update({ snippets })} />
+          </Group>
         </div>
       </div>
     </div>
@@ -223,15 +220,14 @@ function ClaudeAccounts(): React.JSX.Element {
   const clearToken = useStore((s) => s.clearClaudeToken)
 
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-3">
-      <span className="text-sm text-ink-dim">Claude accounts</span>
-      <p className="text-xs leading-relaxed text-ink-dim/70">
-        Keep each section on its own Claude login. On macOS the login lives in one shared
-        Keychain item, so signing in per section is not enough; run{' '}
-        <code className="rounded bg-canvas px-1 text-ink-dim">claude setup-token</code> while
-        signed into that account and paste the token below. A section with no token shares your
-        default account (and isn't isolated). Changes apply to new sessions; restart a running
-        session to switch its account.
+    <div className="flex flex-col gap-3">
+      <p className="text-xs leading-relaxed text-ink-dim">
+        Keep each section on its own Claude login. On macOS the login lives in one shared Keychain
+        item, so signing in per section is not enough; run{' '}
+        <code className="rounded bg-canvas px-1 py-0.5 text-[11px] text-ink">claude setup-token</code>{' '}
+        while signed into that account and paste the token below. A section with no token shares
+        your default account. Changes apply to new sessions; restart a running session to switch
+        its account.
       </p>
       {PROJECT_SECTIONS.map((section) => (
         <ClaudeAccountRow
@@ -294,26 +290,23 @@ function ClaudeAccountRow(props: {
   }
 
   return (
-    <div className="flex flex-col gap-1.5 rounded-md bg-canvas/40 p-2">
+    <div className="flex flex-col gap-2 rounded-lg border border-line bg-canvas/50 p-3">
       <div className="flex items-center justify-between gap-3">
-        <span className="text-sm text-ink">{props.label}</span>
+        <span className="text-sm font-medium text-ink">{props.label}</span>
         {saved || unreadable ? (
           <span
-            className={['flex items-center gap-2 text-xs', unreadable ? 'text-error' : 'text-gold'].join(
+            className={['flex items-center gap-1.5 text-xs', unreadable ? 'text-error' : 'text-gold'].join(
               ' ',
             )}
           >
             <span aria-hidden>●</span>
-            <span>{unreadable ? "Token unreadable, re-enter" : 'Token saved'}</span>
-            <button
-              onClick={() => void clear()}
-              className="rounded px-1.5 py-0.5 text-ink-dim hover:bg-line hover:text-ink"
-            >
+            <span>{unreadable ? 'Token unreadable, re-enter' : 'Token saved'}</span>
+            <button onClick={() => void clear()} className="icon-btn ml-1 px-1.5 py-0.5 text-ink-dim">
               Clear
             </button>
           </span>
         ) : (
-          <span className="text-xs text-ink-dim/70">Using default account</span>
+          <span className="text-xs text-ink-dim">Using default account</span>
         )}
       </div>
       <input
@@ -321,10 +314,7 @@ function ClaudeAccountRow(props: {
         onChange={(e) => props.onConfigDir(e.target.value)}
         placeholder="Config dir, e.g. ~/.claude-personal (optional)"
         aria-invalid={dirInvalid}
-        className={[
-          'w-full rounded-md border bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim',
-          dirInvalid ? 'border-error focus:border-error' : 'border-line focus:border-gold',
-        ].join(' ')}
+        className="input w-full"
       />
       {dirInvalid && (
         <span className="text-xs text-error">
@@ -341,12 +331,12 @@ function ClaudeAccountRow(props: {
             if (e.key === 'Enter') void save()
           }}
           placeholder={saved ? 'Paste a new token to replace' : 'Paste setup-token output'}
-          className="w-full rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+          className="input w-full"
         />
         <button
           onClick={() => void save()}
           disabled={token.trim() === '' || busy}
-          className="shrink-0 rounded-md bg-gold px-3 py-1 text-sm font-medium text-deep-navy hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-40"
+          className="btn-primary shrink-0 px-3.5 py-1.5 text-sm"
         >
           Save
         </button>
@@ -375,20 +365,22 @@ function Snippets(props: {
   }
 
   return (
-    <div className="flex flex-col gap-2 border-t border-line pt-3">
-      <span className="text-sm text-ink-dim">Snippets</span>
+    <div className="flex flex-col gap-2.5">
       {props.snippets.length > 0 && (
         <ul className="flex flex-col gap-1">
           {props.snippets.map((s) => (
-            <li key={s.id} className="flex items-center gap-2 rounded-md bg-canvas px-2 py-1">
+            <li
+              key={s.id}
+              className="flex items-center gap-2 rounded-lg border border-line bg-canvas/50 px-2.5 py-1.5"
+            >
               <span className="text-sm text-ink">{s.name}</span>
               <span className="flex-1 truncate text-xs text-ink-dim">{s.text.slice(0, 40)}</span>
               <button
                 onClick={() => remove(s.id)}
                 aria-label={`Remove ${s.name}`}
-                className="flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-line hover:text-ink"
+                className="icon-btn h-5 w-5 text-xs"
               >
-                ×
+                <CloseGlyph />
               </button>
             </li>
           ))}
@@ -398,19 +390,19 @@ function Snippets(props: {
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Snippet name"
-        className="rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+        className="input w-full"
       />
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={3}
         placeholder="Prompt text"
-        className="resize-none rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim focus:border-gold"
+        className="input w-full resize-none"
       />
       <button
         onClick={add}
         disabled={name.trim() === '' || text.trim() === ''}
-        className="self-start rounded-md bg-gold px-3 py-1.5 text-sm font-medium text-deep-navy hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-40"
+        className="btn-primary self-start px-3.5 py-1.5 text-sm"
       >
         Add snippet
       </button>
@@ -428,6 +420,18 @@ function clampSilence(n: number): number {
   return Math.min(3600, Math.max(0, Math.round(n)))
 }
 
+/** A labelled group of settings rows: an uppercase section label, then content. */
+function Group(props: { label: string; children: React.ReactNode }): React.JSX.Element {
+  return (
+    <section className="flex flex-col gap-3.5">
+      <h3 className="text-[11px] font-semibold uppercase tracking-widest text-ink-dim">
+        {props.label}
+      </h3>
+      {props.children}
+    </section>
+  )
+}
+
 function Row(props: {
   label: string
   caption?: string
@@ -435,32 +439,156 @@ function Row(props: {
 }): React.JSX.Element {
   return (
     <div className="flex items-center justify-between gap-4">
-      <div className="flex flex-col">
-        <span className="text-sm text-ink-dim">{props.label}</span>
-        {props.caption && <span className="text-xs text-ink-dim/70">{props.caption}</span>}
+      <div className="flex min-w-0 flex-col">
+        <span className="text-sm text-ink">{props.label}</span>
+        {props.caption && <span className="text-xs leading-snug text-ink-dim">{props.caption}</span>}
       </div>
       {props.children}
     </div>
   )
 }
 
+/**
+ * A brand-styled dropdown. We render our own listbox rather than a native
+ * <select> so the closed control and the open menu both sit on the navy/gold
+ * palette. The menu is fixed-positioned from the trigger rect so it escapes the
+ * settings panel's own scroll clipping, and closes on scroll/resize so it can't
+ * drift. Keyboard: Enter/Space/ArrowDown opens; arrows move; Enter selects;
+ * Escape closes.
+ */
 function Select<T extends string>(props: {
   value: T
   options: Array<[T, string]>
   onChange: (value: T) => void
 }): React.JSX.Element {
+  const [open, setOpen] = useState(false)
+  const [active, setActive] = useState(0)
+  const [rect, setRect] = useState<DOMRect | null>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
+
+  const selectedIndex = Math.max(
+    0,
+    props.options.findIndex(([v]) => v === props.value),
+  )
+  const currentLabel = props.options[selectedIndex]?.[1] ?? ''
+
+  const openMenu = (): void => {
+    const r = triggerRef.current?.getBoundingClientRect()
+    if (!r) return
+    setRect(r)
+    setActive(selectedIndex)
+    setOpen(true)
+  }
+  const close = (): void => setOpen(false)
+  const choose = (value: T): void => {
+    props.onChange(value)
+    setOpen(false)
+    triggerRef.current?.focus()
+  }
+
+  // A scroll or resize would strand the fixed menu; close rather than chase it.
+  useEffect(() => {
+    if (!open) return
+    const dismiss = (): void => setOpen(false)
+    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    return () => {
+      window.removeEventListener('scroll', dismiss, true)
+      window.removeEventListener('resize', dismiss)
+    }
+  }, [open])
+
+  const onKeyDown = (e: React.KeyboardEvent): void => {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        openMenu()
+      }
+      return
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault()
+      close()
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActive((i) => Math.min(props.options.length - 1, i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActive((i) => Math.max(0, i - 1))
+    } else if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      const opt = props.options[active]
+      if (opt) choose(opt[0])
+    } else if (e.key === 'Tab') {
+      close()
+    }
+  }
+
   return (
-    <select
-      value={props.value}
-      onChange={(e) => props.onChange(e.target.value as T)}
-      className="w-48 rounded-md border border-line bg-canvas px-2 py-1 text-sm text-ink outline-none focus:border-gold"
-    >
-      {props.options.map(([val, label]) => (
-        <option key={val} value={val}>
-          {label}
-        </option>
-      ))}
-    </select>
+    <div className="relative w-48">
+      <button
+        ref={triggerRef}
+        type="button"
+        className="select-trigger w-full"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => (open ? close() : openMenu())}
+        onKeyDown={onKeyDown}
+      >
+        <span className="truncate">{currentLabel}</span>
+        <svg
+          className="select-chevron shrink-0"
+          width="14"
+          height="14"
+          viewBox="0 0 16 16"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M4 6.5 8 10.5 12 6.5"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      {open && rect && (
+        <>
+          <div className="fixed inset-0 z-40" aria-hidden="true" onClick={close} />
+          <ul
+            role="listbox"
+            className="menu menu-in fixed z-50 max-h-64 overflow-y-auto"
+            style={{ top: rect.bottom + 4, left: rect.left, width: rect.width }}
+          >
+            {props.options.map(([val, label], i) => (
+              <li key={val} role="option" aria-selected={val === props.value}>
+                <button
+                  type="button"
+                  className="menu-item justify-between text-ink"
+                  data-active={i === active}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => choose(val)}
+                >
+                  <span className="truncate">{label}</span>
+                  {val === props.value && (
+                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path
+                        d="M3.5 8.5 6.5 11.5 12.5 4.5"
+                        stroke="var(--color-gold)"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      />
+                    </svg>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </div>
   )
 }
 
@@ -471,16 +599,30 @@ function Toggle(props: { on: boolean; onChange: (on: boolean) => void }): React.
       aria-checked={props.on}
       onClick={() => props.onChange(!props.on)}
       className={[
-        'relative h-5 w-9 rounded-full transition-colors',
+        'relative h-5 w-9 shrink-0 rounded-full transition-colors',
         props.on ? 'bg-gold' : 'bg-line',
       ].join(' ')}
     >
       <span
-        className={['absolute top-0.5 h-4 w-4 rounded-full transition-all', props.on ? 'left-[18px]' : 'left-0.5'].join(
-          ' ',
-        )}
-        style={{ backgroundColor: '#FEFDFB' }}
+        className={[
+          'absolute top-0.5 h-4 w-4 rounded-full bg-cream shadow-sm transition-all',
+          props.on ? 'left-[18px]' : 'left-0.5',
+        ].join(' ')}
       />
     </button>
+  )
+}
+
+/** A crisp × glyph (no emoji, consistent stroke with the rest of the icon set). */
+function CloseGlyph(): React.JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M4 4 L12 12 M12 4 L4 12"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
   )
 }

@@ -66,7 +66,7 @@ export function SearchBar(): React.JSX.Element | null {
   }
 
   return (
-    <div className="absolute right-3 top-3 z-30 flex items-center gap-1 rounded-lg border border-line bg-surface p-1 shadow-xl">
+    <div className="menu menu-in absolute right-3 top-3 z-30 flex items-center gap-1 p-1">
       <input
         ref={inputRef}
         autoFocus
@@ -87,13 +87,13 @@ export function SearchBar(): React.JSX.Element | null {
         className="w-44 bg-transparent px-2 py-1 text-sm text-ink outline-none placeholder:text-ink-dim"
       />
       <SearchButton title="Previous (Shift Enter)" onClick={() => find(false)}>
-        ↑
+        <ChevronGlyph dir="up" />
       </SearchButton>
       <SearchButton title="Next (Enter)" onClick={() => find(true)}>
-        ↓
+        <ChevronGlyph dir="down" />
       </SearchButton>
       <SearchButton title="Close (Esc)" onClick={close}>
-        ×
+        <CloseGlyph />
       </SearchButton>
     </div>
   )
@@ -105,12 +105,30 @@ function SearchButton(props: {
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <button
-      title={props.title}
-      onClick={props.onClick}
-      className="flex h-6 w-6 items-center justify-center rounded text-ink-dim hover:bg-line hover:text-ink"
-    >
+    <button title={props.title} aria-label={props.title} onClick={props.onClick} className="icon-btn h-6 w-6">
       {props.children}
     </button>
+  )
+}
+
+function ChevronGlyph({ dir }: { dir: 'up' | 'down' }): React.JSX.Element {
+  return (
+    <svg width="13" height="13" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d={dir === 'up' ? 'M4 10 L8 6 L12 10' : 'M4 6 L8 10 L12 6'}
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function CloseGlyph(): React.JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M4 4 L12 12 M12 4 L4 12" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   )
 }

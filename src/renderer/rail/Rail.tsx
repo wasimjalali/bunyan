@@ -72,7 +72,7 @@ export function Rail(): React.JSX.Element {
           onClick={toggleSide}
           title={moveSidebarLabel}
           aria-label={moveSidebarLabel}
-          className="row-smooth flex h-6 w-6 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
+          className="icon-btn h-6 w-6"
         >
           <DockChevron point={oppositeSide} />
         </button>
@@ -191,9 +191,10 @@ function SectionGroup({
         <button
           onClick={() => void openProject(section)}
           title={`Add a ${section} project`}
-          className="flex h-5 w-5 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
+          aria-label={`Add a ${section} project`}
+          className="icon-btn h-5 w-5"
         >
-          +
+          <PlusGlyph />
         </button>
       </div>
 
@@ -234,6 +235,15 @@ function SectionGroup({
         ))
       )}
     </section>
+  )
+}
+
+/** A thin plus for the section add button, matching the icon set's stroke. */
+function PlusGlyph(): React.JSX.Element {
+  return (
+    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path d="M8 3.5v9M3.5 8h9" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+    </svg>
   )
 }
 

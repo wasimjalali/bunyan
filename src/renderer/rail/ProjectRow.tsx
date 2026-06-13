@@ -282,11 +282,7 @@ function ActionButton(props: {
   children: React.ReactNode
 }): React.JSX.Element {
   return (
-    <button
-      title={props.title}
-      onClick={props.onClick}
-      className="flex h-5 w-5 items-center justify-center rounded text-xs text-ink-dim hover:bg-line hover:text-ink"
-    >
+    <button title={props.title} onClick={props.onClick} className="icon-btn h-5 w-5 text-xs">
       {props.children}
     </button>
   )
@@ -303,37 +299,31 @@ function ProjectMenu(props: {
   return (
     <>
       <div className="fixed inset-0 z-10" onClick={props.dismiss} />
-      <div className="absolute right-0 top-6 z-20 w-44 rounded-lg border border-line bg-surface p-1 shadow-xl">
-        <button
-          onClick={props.onRename}
-          className="block w-full rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-line"
-        >
+      <div className="menu menu-in absolute right-0 top-7 z-20 w-44 p-1">
+        <button onClick={props.onRename} className="menu-item text-ink">
           Rename
         </button>
-        <button
-          onClick={props.onMoveToSection}
-          className="block w-full rounded px-2 py-1.5 text-left text-sm text-ink hover:bg-line"
-        >
+        <button onClick={props.onMoveToSection} className="menu-item text-ink">
           {props.moveLabel}
         </button>
         <div className="px-2 py-1.5">
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-ink-dim">Colour</div>
+          <div className="mb-1.5 text-[10px] font-medium uppercase tracking-widest text-ink-dim">
+            Colour
+          </div>
           <div className="flex flex-wrap gap-1.5">
             {PROJECT_COLORS.map((c) => (
               <button
                 key={c}
                 onClick={() => props.onRecolor(c)}
                 title={c}
+                aria-label={`Set colour ${c}`}
                 className="chip-gloss h-4 w-4 rounded-full"
                 style={{ backgroundColor: c }}
               />
             ))}
           </div>
         </div>
-        <button
-          onClick={props.onClose}
-          className="block w-full rounded px-2 py-1.5 text-left text-sm text-error hover:bg-line"
-        >
+        <button onClick={props.onClose} className="menu-item text-error">
           Close project
         </button>
       </div>

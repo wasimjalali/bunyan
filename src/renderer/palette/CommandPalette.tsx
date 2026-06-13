@@ -115,7 +115,7 @@ export function CommandPalette(): React.JSX.Element | null {
 
   return (
     <div
-      className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-black/40 pt-[12vh]"
+      className="overlay-backdrop fixed inset-0 z-50 flex items-start justify-center bg-deep-navy/55 pt-[12vh]"
       onClick={(e) => {
         if (e.target === e.currentTarget) setPalette(false)
       }}
@@ -123,15 +123,28 @@ export function CommandPalette(): React.JSX.Element | null {
       aria-modal="true"
       aria-label="Command palette"
     >
-      <div className="overlay-panel w-[560px] max-w-[90vw] overflow-hidden rounded-xl border border-line bg-surface shadow-2xl">
-        <input
-          ref={inputRef}
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={onKeyDown}
-          placeholder="Search projects, sessions and actions"
-          className="w-full border-b border-line bg-transparent px-4 py-3 text-sm text-ink outline-none placeholder:text-ink-dim"
-        />
+      <div className="overlay-panel panel w-[560px] max-w-[90vw] overflow-hidden">
+        <div className="flex items-center gap-2.5 border-b border-line px-4">
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 16 16"
+            fill="none"
+            aria-hidden="true"
+            className="shrink-0 text-ink-dim"
+          >
+            <circle cx="7" cy="7" r="4.5" stroke="currentColor" strokeWidth="1.5" />
+            <path d="m11 11 3 3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          </svg>
+          <input
+            ref={inputRef}
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            onKeyDown={onKeyDown}
+            placeholder="Search projects, sessions and actions"
+            className="w-full bg-transparent py-3.5 text-sm text-ink outline-none placeholder:text-ink-dim"
+          />
+        </div>
         <ul className="max-h-80 overflow-y-auto p-1.5">
           {results.length === 0 ? (
             <li className="px-3 py-6 text-center text-sm text-ink-dim">No matches</li>

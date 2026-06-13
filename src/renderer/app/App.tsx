@@ -389,11 +389,41 @@ function TitleBar({
       <button
         onClick={onToggleTheme}
         title={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
-        className="no-drag ml-auto flex h-6 w-6 items-center justify-center rounded text-ink-dim hover:bg-surface hover:text-ink"
+        aria-label={themeMode === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'}
+        className="icon-btn no-drag ml-auto h-7 w-7"
       >
-        {themeMode === 'dark' ? '☀' : '☾'}
+        {themeMode === 'dark' ? <SunGlyph /> : <MoonGlyph />}
       </button>
     </header>
+  )
+}
+
+/** Theme-toggle icons: a sun shown in dark mode, a moon in light mode. One
+ *  stroke weight, matching the rest of the SVG icon set (no symbol glyphs). */
+function SunGlyph(): React.JSX.Element {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <circle cx="8" cy="8" r="3" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M8 1.5v1.5M8 13v1.5M1.5 8H3M13 8h1.5M3.4 3.4l1 1M11.6 11.6l1 1M12.6 3.4l-1 1M4.4 11.6l-1 1"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function MoonGlyph(): React.JSX.Element {
+  return (
+    <svg width="15" height="15" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M13.5 9.5A5.5 5.5 0 0 1 6.5 2.5a5.5 5.5 0 1 0 7 7Z"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinejoin="round"
+      />
+    </svg>
   )
 }
 
