@@ -1,5 +1,7 @@
 # Bunyan
 
+**One calm Mac window for all your terminal projects and AI coding sessions.**
+
 A premium macOS terminal for running and tracking multiple projects and Claude Code sessions from one calm place.
 
 Bunyan (بُنيان) means a solid, firmly built structure.
