@@ -56,4 +56,4 @@ and the build plan in [`docs/plans/`](docs/plans/).
 
 ## License
 
-MIT.
+MIT. See [LICENSE](LICENSE).
