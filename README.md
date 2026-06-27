@@ -2,6 +2,11 @@
 
 **One calm Mac window for all your terminal projects and AI coding sessions.**
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Electron](https://img.shields.io/badge/Electron-2C2E3B?logo=electron&logoColor=white)](https://www.electronjs.org)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](https://www.typescriptlang.org)
+![Platform](https://img.shields.io/badge/platform-macOS-lightgrey)
+
 A premium macOS terminal for running and tracking multiple projects and Claude Code sessions from one calm place.
 
 Bunyan (بُنيان) means a solid, firmly built structure.
